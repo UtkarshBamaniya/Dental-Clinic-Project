@@ -32,7 +32,7 @@ class HandleInertiaRequests extends Middleware
         return [
             ...parent::share($request),
             'auth' => [
-                'user' => $request->user()?->loadMissing('branch', 'doctorProfile'),
+                'user' => $request->user()?->loadMissing('branch', 'doctorProfile', 'roleRecord'),
             ],
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),

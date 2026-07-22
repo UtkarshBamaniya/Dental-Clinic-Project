@@ -11,17 +11,20 @@ return new class extends Migration {
             $table->foreignId('branch_id')->nullable()->after('id')->constrained()->nullOnDelete();
             $table->string('phone')->nullable()->after('email');
             $table->string('role')->default('receptionist')->after('phone');
+            $table->foreignId('role_id')->nullable()->after('role')->constrained('roles')->nullOnDelete();
             $table->string('job_title')->nullable()->after('role');
             $table->boolean('status')->default(true)->after('job_title');
             $table->decimal('monthly_salary', 12, 2)->default(0)->after('status');
+            $table->softDeletes();
         });
     }
 
     public function down(): void
     {
         Schema::table('users', function (Blueprint $table) {
+            $table->dropConstrainedForeignId('role_id');
             $table->dropConstrainedForeignId('branch_id');
-            $table->dropColumn(['phone', 'role', 'job_title', 'status', 'monthly_salary']);
+            $table->dropColumn(['phone', 'role', 'job_title', 'status', 'monthly_salary', 'deleted_at']);
         });
     }
 };

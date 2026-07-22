@@ -2,9 +2,11 @@
 
 use App\Http\Controllers\AppointmentController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\BranchMasterController;
 use App\Http\Controllers\FinanceController;
 use App\Http\Controllers\InquiryController;
 use App\Http\Controllers\PatientController;
+use App\Http\Controllers\RoleMasterController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\StaffController;
 use Illuminate\Foundation\Application;
@@ -43,5 +45,24 @@ Route::middleware(['auth'])->group(function () {
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
+
+Route::middleware(['auth', 'admin'])->prefix('masters')->name('masters.')->group(function () {
+    Route::get('/branches', [BranchMasterController::class, 'index'])->name('branches.index');
+    Route::post('/branches', [BranchMasterController::class, 'store'])->name('branches.store');
+    Route::put('/branches/{branch}', [BranchMasterController::class, 'update'])->name('branches.update');
+    Route::delete('/branches/{branch}', [BranchMasterController::class, 'destroy'])->name('branches.destroy');
+
+    Route::get('/users', [StaffController::class, 'index'])->name('users.index');
+    Route::post('/users', [StaffController::class, 'store'])->name('users.store');
+    Route::put('/users/{user}', [StaffController::class, 'update'])->name('users.update');
+    Route::delete('/users/{user}', [StaffController::class, 'destroy'])->name('users.destroy');
+
+    Route::get('/roles', [RoleMasterController::class, 'index'])->name('roles.index');
+    Route::post('/roles', [RoleMasterController::class, 'store'])->name('roles.store');
+    Route::put('/roles/{role}', [RoleMasterController::class, 'update'])->name('roles.update');
+    Route::delete('/roles/{role}', [RoleMasterController::class, 'destroy'])->name('roles.destroy');
+});
+
+Route::middleware(['auth', 'admin'])->get('/staff', fn () => redirect()->route('masters.users.index'))->name('staff.index');
 
 require __DIR__.'/auth.php';

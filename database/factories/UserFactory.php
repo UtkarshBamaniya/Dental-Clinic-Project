@@ -2,9 +2,9 @@
 
 namespace Database\Factories;
 
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
 /**
@@ -31,10 +31,11 @@ class UserFactory extends Factory
             'phone' => fake()->numerify('98########'),
             'email_verified_at' => now(),
             'role' => fake()->randomElement(['branch_admin', 'receptionist', 'doctor', 'accountant']),
+            'role_id' => Role::query()->inRandomOrder()->value('id'),
             'job_title' => fake()->jobTitle(),
             'status' => true,
             'monthly_salary' => fake()->numberBetween(25000, 90000),
-            'password' => static::$password ??= Hash::make('password'),
+            'password' => static::$password ??= 'password',
             'remember_token' => Str::random(10),
         ];
     }

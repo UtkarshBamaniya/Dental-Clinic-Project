@@ -7,15 +7,11 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration {
     public function up(): void
     {
-        Schema::create('branches', function (Blueprint $table) {
+        Schema::create('roles', function (Blueprint $table) {
             $table->id();
-            $table->string('name');
             $table->string('code')->unique();
-            $table->string('phone')->nullable();
-            $table->string('email')->nullable();
-            $table->string('city')->nullable();
-            $table->text('address')->nullable();
-            $table->string('manager_name')->nullable();
+            $table->string('name');
+            $table->boolean('is_system')->default(false);
             $table->timestamps();
             $table->softDeletes();
         });
@@ -23,6 +19,6 @@ return new class extends Migration {
 
     public function down(): void
     {
-        Schema::dropIfExists('branches');
+        Schema::dropIfExists('roles');
     }
 };

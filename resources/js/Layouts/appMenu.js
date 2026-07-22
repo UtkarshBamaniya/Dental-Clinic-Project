@@ -33,16 +33,33 @@ export function createAppMenu(route) {
                     roles: ['super_admin', 'branch_admin', 'receptionist', 'doctor'],
                 },
                 {
-                    label: 'Staff',
-                    icon: 'pi pi-id-card',
-                    href: route('staff.index'),
-                    roles: ['super_admin', 'branch_admin', 'hr'],
-                },
-                {
                     label: 'Finance',
                     icon: 'pi pi-wallet',
                     href: route('finance.index'),
                     roles: ['super_admin', 'branch_admin', 'accountant', 'hr'],
+                },
+            ],
+        },
+        {
+            label: 'Masters',
+            items: [
+                {
+                    label: 'Branches',
+                    icon: 'pi pi-building',
+                    href: route('masters.branches.index'),
+                    roles: ['super_admin', 'branch_admin'],
+                },
+                {
+                    label: 'Users',
+                    icon: 'pi pi-id-card',
+                    href: route('masters.users.index'),
+                    roles: ['super_admin', 'branch_admin'],
+                },
+                {
+                    label: 'Roles',
+                    icon: 'pi pi-shield',
+                    href: route('masters.roles.index'),
+                    roles: ['super_admin', 'branch_admin'],
                 },
             ],
         },

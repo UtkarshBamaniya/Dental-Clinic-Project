@@ -11,10 +11,10 @@ use App\Models\Inquiry;
 use App\Models\Patient;
 use App\Models\Payment;
 use App\Models\PayrollRecord;
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\Hash;
 
 class DatabaseSeeder extends Seeder
 {
@@ -25,6 +25,22 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        $roles = collect([
+            ['code' => 'super_admin', 'name' => 'Super Admin', 'is_system' => true],
+            ['code' => 'branch_admin', 'name' => 'Branch Admin', 'is_system' => true],
+            ['code' => 'receptionist', 'name' => 'Receptionist', 'is_system' => true],
+            ['code' => 'doctor', 'name' => 'Doctor', 'is_system' => true],
+            ['code' => 'hr', 'name' => 'HR', 'is_system' => true],
+            ['code' => 'accountant', 'name' => 'Accountant', 'is_system' => true],
+        ])->mapWithKeys(function (array $role) {
+            return [
+                $role['code'] => Role::query()->updateOrCreate(
+                    ['code' => $role['code']],
+                    $role,
+                ),
+            ];
+        });
+
         $mainBranch = Branch::query()->create([
             'name' => 'SmileWorks Dental - Ahmedabad',
             'code' => 'AMD01',
@@ -50,12 +66,12 @@ class DatabaseSeeder extends Seeder
             'name' => 'Clinic Super Admin',
             'email' => 'admin@smileworks.test',
             'phone' => '9876500000',
-            'role' => 'super_admin',
+            'role_id' => $roles['super_admin']->id,
             'job_title' => 'Operations Head',
             'status' => true,
             'monthly_salary' => 95000,
             'email_verified_at' => now(),
-            'password' => Hash::make('password'),
+            'password' => 'password',
         ]);
 
         $reception = User::query()->create([
@@ -63,12 +79,12 @@ class DatabaseSeeder extends Seeder
             'name' => 'Nisha Reception',
             'email' => 'reception@smileworks.test',
             'phone' => '9876500001',
-            'role' => 'receptionist',
+            'role_id' => $roles['receptionist']->id,
             'job_title' => 'Front Desk Executive',
             'status' => true,
             'monthly_salary' => 28000,
             'email_verified_at' => now(),
-            'password' => Hash::make('password'),
+            'password' => 'password',
         ]);
 
         $accountant = User::query()->create([
@@ -76,12 +92,12 @@ class DatabaseSeeder extends Seeder
             'name' => 'Rakesh Finance',
             'email' => 'accounts@smileworks.test',
             'phone' => '9876500002',
-            'role' => 'accountant',
+            'role_id' => $roles['accountant']->id,
             'job_title' => 'Accounts Manager',
             'status' => true,
             'monthly_salary' => 52000,
             'email_verified_at' => now(),
-            'password' => Hash::make('password'),
+            'password' => 'password',
         ]);
 
         $doctorOne = User::query()->create([
@@ -89,12 +105,12 @@ class DatabaseSeeder extends Seeder
             'name' => 'Dr. Mehul Shah',
             'email' => 'mehul@smileworks.test',
             'phone' => '9876500003',
-            'role' => 'doctor',
+            'role_id' => $roles['doctor']->id,
             'job_title' => 'Senior Implantologist',
             'status' => true,
             'monthly_salary' => 125000,
             'email_verified_at' => now(),
-            'password' => Hash::make('password'),
+            'password' => 'password',
         ]);
 
         $doctorTwo = User::query()->create([
@@ -102,12 +118,12 @@ class DatabaseSeeder extends Seeder
             'name' => 'Dr. Priya Mehta',
             'email' => 'priya@smileworks.test',
             'phone' => '9876500004',
-            'role' => 'doctor',
+            'role_id' => $roles['doctor']->id,
             'job_title' => 'Orthodontist',
             'status' => true,
             'monthly_salary' => 118000,
             'email_verified_at' => now(),
-            'password' => Hash::make('password'),
+            'password' => 'password',
         ]);
 
         $doctorProfileOne = DoctorProfile::query()->create([

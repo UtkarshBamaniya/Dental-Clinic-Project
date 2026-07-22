@@ -31,7 +31,7 @@ const menuGroups = computed(() =>
 );
 
 const activePath = computed(() => page.url);
-const roleLabel = computed(() => user.value?.role?.replace(/_/g, ' ') || 'staff');
+const roleLabel = computed(() => user.value?.role_record?.name || user.value?.role?.replace(/_/g, ' ') || 'staff');
 const branchLabel = computed(() => user.value?.branch?.name || 'Global access');
 const initials = computed(() => user.value?.name?.charAt(0)?.toUpperCase() || 'S');
 

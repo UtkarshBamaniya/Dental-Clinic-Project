@@ -6,6 +6,7 @@ namespace App\Models;
 use App\Models\Branch;
 use App\Models\DoctorProfile;
 use App\Models\PayrollRecord;
+use App\Models\Role;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -13,11 +14,12 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable;
+    use HasFactory, Notifiable, SoftDeletes;
 
     /**
      * The attributes that are mass assignable.
@@ -29,6 +31,7 @@ class User extends Authenticatable
         'email',
         'phone',
         'role',
+        'role_id',
         'job_title',
         'status',
         'monthly_salary',
@@ -63,12 +66,17 @@ class User extends Authenticatable
 
     public function branch(): BelongsTo
     {
-        return $this->belongsTo(Branch::class);
+        return $this->belongsTo(Branch::class)->withTrashed();
     }
 
     public function doctorProfile(): HasOne
     {
         return $this->hasOne(DoctorProfile::class);
+    }
+
+    public function roleRecord(): BelongsTo
+    {
+        return $this->belongsTo(Role::class, 'role_id')->withTrashed();
     }
 
     public function payrollRecords(): HasMany
@@ -89,5 +97,40 @@ class User extends Authenticatable
     public function isDoctor(): bool
     {
         return $this->role === 'doctor';
+    }
+
+    public function getRoleAttribute($value): ?string
+    {
+        return $this->roleRecord?->code ?? $value;
+    }
+
+    public function setRoleAttribute($value): void
+    {
+        $this->attributes['role'] = $value;
+
+        if ($value === null || $value === '') {
+            return;
+        }
+
+        $role = Role::query()->withTrashed()->where('code', $value)->first();
+
+        if ($role) {
+            $this->attributes['role_id'] = $role->id;
+        }
+    }
+
+    public function setRoleIdAttribute($value): void
+    {
+        $this->attributes['role_id'] = $value;
+
+        if ($value === null || $value === '') {
+            return;
+        }
+
+        $role = Role::query()->withTrashed()->find($value);
+
+        if ($role) {
+            $this->attributes['role'] = $role->code;
+        }
     }
 }
