@@ -27,20 +27,41 @@ Route::post('/book-appointment', [AppointmentController::class, 'publicStore'])-
 
 Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+
+    // Inquiries
     Route::get('/inquiries', [InquiryController::class, 'index'])->name('inquiries.index');
     Route::post('/inquiries', [InquiryController::class, 'store'])->name('inquiries.store');
+    Route::put('/inquiries/{inquiry}', [InquiryController::class, 'update'])->name('inquiries.update');
+    Route::delete('/inquiries/{inquiry}', [InquiryController::class, 'destroy'])->name('inquiries.destroy');
     Route::patch('/inquiries/{inquiry}/converted', [InquiryController::class, 'markConverted'])->name('inquiries.converted');
+
+    // Patients
     Route::get('/patients', [PatientController::class, 'index'])->name('patients.index');
     Route::post('/patients', [PatientController::class, 'store'])->name('patients.store');
+    Route::put('/patients/{patient}', [PatientController::class, 'update'])->name('patients.update');
+    Route::delete('/patients/{patient}', [PatientController::class, 'destroy'])->name('patients.destroy');
+
+    // Appointments
     Route::get('/appointments', [AppointmentController::class, 'index'])->name('appointments.index');
     Route::post('/appointments', [AppointmentController::class, 'store'])->name('appointments.store');
+    Route::put('/appointments/{appointment}', [AppointmentController::class, 'update'])->name('appointments.update');
+    Route::delete('/appointments/{appointment}', [AppointmentController::class, 'destroy'])->name('appointments.destroy');
     Route::patch('/appointments/{appointment}/status', [AppointmentController::class, 'updateStatus'])->name('appointments.status');
+
+    // Staff
     Route::get('/staff', [StaffController::class, 'index'])->name('staff.index');
     Route::post('/staff', [StaffController::class, 'store'])->name('staff.store');
+
+    // Finance
     Route::get('/finance', [FinanceController::class, 'index'])->name('finance.index');
     Route::post('/finance/payments', [FinanceController::class, 'storePayment'])->name('finance.payments.store');
+    Route::delete('/finance/payments/{payment}', [FinanceController::class, 'destroyPayment'])->name('finance.payments.destroy');
     Route::post('/finance/expenses', [FinanceController::class, 'storeExpense'])->name('finance.expenses.store');
+    Route::delete('/finance/expenses/{expense}', [FinanceController::class, 'destroyExpense'])->name('finance.expenses.destroy');
     Route::post('/finance/payroll', [FinanceController::class, 'storePayroll'])->name('finance.payroll.store');
+    Route::delete('/finance/payroll/{payroll}', [FinanceController::class, 'destroyPayroll'])->name('finance.payroll.destroy');
+
+    // Profile
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');

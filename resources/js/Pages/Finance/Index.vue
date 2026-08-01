@@ -1,12 +1,14 @@
 <script setup>
 import { computed, ref } from 'vue';
-import { useForm } from '@inertiajs/vue3';
+import { router, useForm } from '@inertiajs/vue3';
 import { route } from 'ziggy-js';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import Button from 'primevue/button';
 import Card from 'primevue/card';
 import Column from 'primevue/column';
+import ContextMenu from 'primevue/contextmenu';
 import DataTable from 'primevue/datatable';
+import DatePicker from 'primevue/datepicker';
 import Dialog from 'primevue/dialog';
 import InputNumber from 'primevue/inputnumber';
 import InputText from 'primevue/inputtext';
@@ -25,16 +27,39 @@ const props = defineProps({
     staff: Array,
     ledgerSummary: Array,
     profitLoss: Object,
+    filters: Object,
 });
 
 const activeSection = ref('ledger');
 const showPaymentModal = ref(false);
 const showExpenseModal = ref(false);
 const showPayrollModal = ref(false);
-const filters = ref({
+const localFilters = ref({
     search: '',
     branchId: null,
 });
+
+const dateFrom = ref(props.filters?.from_date ? new Date(props.filters.from_date) : null);
+const dateTo   = ref(props.filters?.to_date   ? new Date(props.filters.to_date)   : null);
+
+function formatDate(date) {
+    if (!date) return null;
+    const d = new Date(date);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function generate() {
+    router.get(route('finance.index'), {
+        from_date: formatDate(dateFrom.value),
+        to_date:   formatDate(dateTo.value),
+    }, { preserveState: true, preserveScroll: true });
+}
+
+function resetDateFilter() {
+    dateFrom.value = null;
+    dateTo.value   = null;
+    router.get(route('finance.index'), {}, { preserveState: true, preserveScroll: true });
+}
 
 const paymentForm = useForm({
     branch_id: props.branches[0]?.id ?? null,
@@ -81,13 +106,13 @@ const summary = computed(() => ({
 
 const filteredJournals = computed(() =>
     props.journals.filter((entry) => {
-        const search = filters.value.search.trim().toLowerCase();
+        const search = localFilters.value.search.trim().toLowerCase();
         const matchesSearch =
             !search ||
             entry.account_head?.toLowerCase().includes(search) ||
             entry.reference_type?.toLowerCase().includes(search) ||
             entry.narration?.toLowerCase().includes(search);
-        const matchesBranch = !filters.value.branchId || entry.branch_id === filters.value.branchId;
+        const matchesBranch = !localFilters.value.branchId || entry.branch_id === localFilters.value.branchId;
 
         return matchesSearch && matchesBranch;
     }),
@@ -95,7 +120,7 @@ const filteredJournals = computed(() =>
 
 const filteredLedgerSummary = computed(() =>
     props.ledgerSummary.filter((entry) => {
-        const search = filters.value.search.trim().toLowerCase();
+        const search = localFilters.value.search.trim().toLowerCase();
         return !search || entry.account_head?.toLowerCase().includes(search);
     }),
 );
@@ -175,6 +200,57 @@ function savePayroll() {
         },
     });
 }
+
+// ── Payments context menu ─────────────────────────────────────────────────
+const paymentCtxMenu     = ref();
+const paymentCtxRow      = ref(null);
+const showPaymentDetail  = ref(false);
+const detailPayment      = ref(null);
+const paymentCtxItems    = computed(() => [
+    { label: 'Show',   icon: 'pi pi-eye',    command: () => { detailPayment.value = paymentCtxRow.value; showPaymentDetail.value = true; } },
+    { separator: true },
+    { label: 'Delete', icon: 'pi pi-trash',  class: 'text-red-600',
+      command: () => {
+          if (!window.confirm(`Delete payment Rs.${paymentCtxRow.value?.amount}?`)) return;
+          router.delete(route('finance.payments.destroy', paymentCtxRow.value.id), { preserveScroll: true });
+      }
+    },
+]);
+function onPaymentContextMenu(event) { paymentCtxRow.value = event.data; paymentCtxMenu.value.show(event.originalEvent); }
+
+// ── Expenses context menu ─────────────────────────────────────────────────
+const expenseCtxMenu     = ref();
+const expenseCtxRow      = ref(null);
+const showExpenseDetail  = ref(false);
+const detailExpense      = ref(null);
+const expenseCtxItems    = computed(() => [
+    { label: 'Show',   icon: 'pi pi-eye',    command: () => { detailExpense.value = expenseCtxRow.value; showExpenseDetail.value = true; } },
+    { separator: true },
+    { label: 'Delete', icon: 'pi pi-trash',  class: 'text-red-600',
+      command: () => {
+          if (!window.confirm(`Delete expense "${expenseCtxRow.value?.title}"?`)) return;
+          router.delete(route('finance.expenses.destroy', expenseCtxRow.value.id), { preserveScroll: true });
+      }
+    },
+]);
+function onExpenseContextMenu(event) { expenseCtxRow.value = event.data; expenseCtxMenu.value.show(event.originalEvent); }
+
+// ── Payrolls context menu ─────────────────────────────────────────────────
+const payrollCtxMenu     = ref();
+const payrollCtxRow      = ref(null);
+const showPayrollDetail  = ref(false);
+const detailPayroll      = ref(null);
+const payrollCtxItems    = computed(() => [
+    { label: 'Show',   icon: 'pi pi-eye',    command: () => { detailPayroll.value = payrollCtxRow.value; showPayrollDetail.value = true; } },
+    { separator: true },
+    { label: 'Delete', icon: 'pi pi-trash',  class: 'text-red-600',
+      command: () => {
+          if (!window.confirm(`Delete payroll for ${payrollCtxRow.value?.user?.name}?`)) return;
+          router.delete(route('finance.payroll.destroy', payrollCtxRow.value.id), { preserveScroll: true });
+      }
+    },
+]);
+function onPayrollContextMenu(event) { payrollCtxRow.value = event.data; payrollCtxMenu.value.show(event.originalEvent); }
 </script>
 
 <template>
@@ -210,13 +286,20 @@ function savePayroll() {
             <div class="flex flex-wrap gap-2">
                 <Button label="Ledger Entries" :severity="activeSection === 'ledger' ? 'contrast' : 'secondary'" :outlined="activeSection !== 'ledger'" @click="activeSection = 'ledger'" />
                 <Button label="Ledger Summary" :severity="activeSection === 'summary' ? 'contrast' : 'secondary'" :outlined="activeSection !== 'summary'" @click="activeSection = 'summary'" />
-                <Button label="Profit & Loss" :severity="activeSection === 'pl' ? 'contrast' : 'secondary'" :outlined="activeSection !== 'pl'" @click="activeSection = 'pl'" />
+                <Button label="Profit &amp; Loss" :severity="activeSection === 'pl' ? 'contrast' : 'secondary'" :outlined="activeSection !== 'pl'" @click="activeSection = 'pl'" />
+                <Button label="Payments" :severity="activeSection === 'payments' ? 'contrast' : 'secondary'" :outlined="activeSection !== 'payments'" @click="activeSection = 'payments'" />
+                <Button label="Expenses" :severity="activeSection === 'expenses' ? 'contrast' : 'secondary'" :outlined="activeSection !== 'expenses'" @click="activeSection = 'expenses'" />
+                <Button label="Payrolls" :severity="activeSection === 'payrolls' ? 'contrast' : 'secondary'" :outlined="activeSection !== 'payrolls'" @click="activeSection = 'payrolls'" />
             </div>
 
             <div class="page-toolbar">
                 <div class="page-toolbar__filters">
-                    <InputText v-model="filters.search" placeholder="Search finance records" />
-                    <Select v-model="filters.branchId" :options="branches" optionLabel="name" optionValue="id" placeholder="Filter by branch" showClear />
+                    <InputText v-model="localFilters.search" placeholder="Search finance records" />
+                    <Select v-model="localFilters.branchId" :options="branches" optionLabel="name" optionValue="id" placeholder="Filter by branch" showClear />
+                    <DatePicker v-model="dateFrom" placeholder="From Date" dateFormat="yy-mm-dd" showIcon iconDisplay="input" />
+                    <DatePicker v-model="dateTo" placeholder="To Date" dateFormat="yy-mm-dd" showIcon iconDisplay="input" />
+                    <Button label="Generate" icon="pi pi-filter" @click="generate" />
+                    <Button v-if="dateFrom || dateTo" icon="pi pi-times" severity="secondary" outlined @click="resetDateFilter" v-tooltip="'Clear date filter'" />
                 </div>
                 <div class="page-toolbar__actions">
                     <Button label="Add Payment" icon="pi pi-plus" @click="openPaymentModal" />
@@ -269,7 +352,7 @@ function savePayroll() {
             <section v-if="activeSection === 'pl'">
                 <div class="grid gap-6 xl:grid-cols-[0.85fr_1.15fr]">
                     <Card class="glass-panel rounded-[28px] border-none shadow-none">
-                        <template #title><div class="text-sm font-medium text-slate-500">Profit & Loss Summary</div></template>
+                        <template #title><div class="text-sm font-medium text-slate-500">Profit &amp; Loss Summary</div></template>
                         <template #content>
                             <div class="space-y-4">
                                 <div class="flex items-center justify-between rounded-2xl bg-white px-4 py-4">
@@ -313,7 +396,124 @@ function savePayroll() {
                     </Card>
                 </div>
             </section>
+
+            <!-- Payments Tab -->
+            <section v-if="activeSection === 'payments'">
+                <ContextMenu ref="paymentCtxMenu" :model="paymentCtxItems" />
+                <Card class="glass-panel rounded-[28px] border-none shadow-none">
+                    <template #content>
+                        <DataTable :value="payments" stripedRows responsiveLayout="scroll" contextMenu @row-contextmenu="onPaymentContextMenu">
+                            <Column field="invoice_number" header="Invoice" />
+                            <Column field="patient.name" header="Patient" />
+                            <Column field="branch.name" header="Branch" />
+                            <Column field="payment_date" header="Date" />
+                            <Column field="method" header="Method" />
+                            <Column header="Amount">
+                                <template #body="{ data }">Rs. {{ Number(data.amount).toLocaleString() }}</template>
+                            </Column>
+                            <Column header="Status">
+                                <template #body="{ data }"><Tag :value="data.status" severity="success" rounded /></template>
+                            </Column>
+                        </DataTable>
+                    </template>
+                </Card>
+            </section>
+
+            <!-- Expenses Tab -->
+            <section v-if="activeSection === 'expenses'">
+                <ContextMenu ref="expenseCtxMenu" :model="expenseCtxItems" />
+                <Card class="glass-panel rounded-[28px] border-none shadow-none">
+                    <template #content>
+                        <DataTable :value="expenses" stripedRows responsiveLayout="scroll" contextMenu @row-contextmenu="onExpenseContextMenu">
+                            <Column field="title" header="Title" />
+                            <Column field="category" header="Category" />
+                            <Column field="branch.name" header="Branch" />
+                            <Column field="expense_date" header="Date" />
+                            <Column field="vendor_name" header="Vendor" />
+                            <Column field="paid_via" header="Paid Via" />
+                            <Column header="Amount">
+                                <template #body="{ data }">Rs. {{ Number(data.amount).toLocaleString() }}</template>
+                            </Column>
+                        </DataTable>
+                    </template>
+                </Card>
+            </section>
+
+            <!-- Payrolls Tab -->
+            <section v-if="activeSection === 'payrolls'">
+                <ContextMenu ref="payrollCtxMenu" :model="payrollCtxItems" />
+                <Card class="glass-panel rounded-[28px] border-none shadow-none">
+                    <template #content>
+                        <DataTable :value="payrolls" stripedRows responsiveLayout="scroll" contextMenu @row-contextmenu="onPayrollContextMenu">
+                            <Column field="user.name" header="Staff" />
+                            <Column field="branch.name" header="Branch" />
+                            <Column field="salary_month" header="Month" />
+                            <Column header="Gross Salary">
+                                <template #body="{ data }">Rs. {{ Number(data.gross_salary).toLocaleString() }}</template>
+                            </Column>
+                            <Column header="Net Salary">
+                                <template #body="{ data }">Rs. {{ Number(data.net_salary).toLocaleString() }}</template>
+                            </Column>
+                            <Column header="Status">
+                                <template #body="{ data }"><Tag :value="data.payment_status" severity="info" rounded /></template>
+                            </Column>
+                        </DataTable>
+                    </template>
+                </Card>
+            </section>
         </div>
+
+        <!-- ─── Payment Detail Dialog ──────────────────────────────────────────── -->
+        <Dialog v-model:visible="showPaymentDetail" modal header="Payment Details" :style="{ width: '42rem' }">
+            <div v-if="detailPayment" class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div><div class="text-xs text-slate-400 uppercase tracking-wide">Invoice</div><div class="mt-1 font-medium font-mono">{{ detailPayment.invoice_number }}</div></div>
+                    <div><div class="text-xs text-slate-400 uppercase tracking-wide">Patient</div><div class="mt-1 font-medium">{{ detailPayment.patient?.name || '—' }}</div></div>
+                    <div><div class="text-xs text-slate-400 uppercase tracking-wide">Branch</div><div class="mt-1 font-medium">{{ detailPayment.branch?.name || '—' }}</div></div>
+                    <div><div class="text-xs text-slate-400 uppercase tracking-wide">Date</div><div class="mt-1 font-medium">{{ detailPayment.payment_date }}</div></div>
+                    <div><div class="text-xs text-slate-400 uppercase tracking-wide">Amount</div><div class="mt-1 font-medium">Rs. {{ Number(detailPayment.amount).toLocaleString() }}</div></div>
+                    <div><div class="text-xs text-slate-400 uppercase tracking-wide">Method</div><div class="mt-1 font-medium">{{ detailPayment.method }}</div></div>
+                    <div><div class="text-xs text-slate-400 uppercase tracking-wide">Status</div><div class="mt-1"><Tag :value="detailPayment.status" severity="success" rounded /></div></div>
+                </div>
+                <div v-if="detailPayment.notes"><div class="text-xs text-slate-400 uppercase tracking-wide">Notes</div><div class="mt-1 rounded-xl bg-slate-50 p-3 text-sm">{{ detailPayment.notes }}</div></div>
+                <div class="flex justify-end pt-2"><Button label="Close" severity="secondary" outlined @click="showPaymentDetail = false" /></div>
+            </div>
+        </Dialog>
+
+        <!-- ─── Expense Detail Dialog ──────────────────────────────────────────── -->
+        <Dialog v-model:visible="showExpenseDetail" modal header="Expense Details" :style="{ width: '42rem' }">
+            <div v-if="detailExpense" class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div><div class="text-xs text-slate-400 uppercase tracking-wide">Title</div><div class="mt-1 font-medium">{{ detailExpense.title }}</div></div>
+                    <div><div class="text-xs text-slate-400 uppercase tracking-wide">Category</div><div class="mt-1 font-medium">{{ detailExpense.category }}</div></div>
+                    <div><div class="text-xs text-slate-400 uppercase tracking-wide">Branch</div><div class="mt-1 font-medium">{{ detailExpense.branch?.name || '—' }}</div></div>
+                    <div><div class="text-xs text-slate-400 uppercase tracking-wide">Date</div><div class="mt-1 font-medium">{{ detailExpense.expense_date }}</div></div>
+                    <div><div class="text-xs text-slate-400 uppercase tracking-wide">Vendor</div><div class="mt-1 font-medium">{{ detailExpense.vendor_name || '—' }}</div></div>
+                    <div><div class="text-xs text-slate-400 uppercase tracking-wide">Paid Via</div><div class="mt-1 font-medium">{{ detailExpense.paid_via }}</div></div>
+                    <div><div class="text-xs text-slate-400 uppercase tracking-wide">Amount</div><div class="mt-1 font-medium">Rs. {{ Number(detailExpense.amount).toLocaleString() }}</div></div>
+                </div>
+                <div v-if="detailExpense.notes"><div class="text-xs text-slate-400 uppercase tracking-wide">Notes</div><div class="mt-1 rounded-xl bg-slate-50 p-3 text-sm">{{ detailExpense.notes }}</div></div>
+                <div class="flex justify-end pt-2"><Button label="Close" severity="secondary" outlined @click="showExpenseDetail = false" /></div>
+            </div>
+        </Dialog>
+
+        <!-- ─── Payroll Detail Dialog ──────────────────────────────────────────── -->
+        <Dialog v-model:visible="showPayrollDetail" modal header="Payroll Details" :style="{ width: '42rem' }">
+            <div v-if="detailPayroll" class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div><div class="text-xs text-slate-400 uppercase tracking-wide">Staff</div><div class="mt-1 font-medium">{{ detailPayroll.user?.name || '—' }}</div></div>
+                    <div><div class="text-xs text-slate-400 uppercase tracking-wide">Branch</div><div class="mt-1 font-medium">{{ detailPayroll.branch?.name || '—' }}</div></div>
+                    <div><div class="text-xs text-slate-400 uppercase tracking-wide">Month</div><div class="mt-1 font-medium">{{ detailPayroll.salary_month }}</div></div>
+                    <div><div class="text-xs text-slate-400 uppercase tracking-wide">Gross Salary</div><div class="mt-1 font-medium">Rs. {{ Number(detailPayroll.gross_salary).toLocaleString() }}</div></div>
+                    <div><div class="text-xs text-slate-400 uppercase tracking-wide">Bonus</div><div class="mt-1 font-medium">Rs. {{ Number(detailPayroll.bonus).toLocaleString() }}</div></div>
+                    <div><div class="text-xs text-slate-400 uppercase tracking-wide">Deductions</div><div class="mt-1 font-medium">Rs. {{ Number(detailPayroll.deductions).toLocaleString() }}</div></div>
+                    <div><div class="text-xs text-slate-400 uppercase tracking-wide">Net Salary</div><div class="mt-1 font-medium text-lg">Rs. {{ Number(detailPayroll.net_salary).toLocaleString() }}</div></div>
+                    <div><div class="text-xs text-slate-400 uppercase tracking-wide">Status</div><div class="mt-1"><Tag :value="detailPayroll.payment_status" severity="info" rounded /></div></div>
+                    <div><div class="text-xs text-slate-400 uppercase tracking-wide">Paid On</div><div class="mt-1 font-medium">{{ detailPayroll.paid_on || '—' }}</div></div>
+                </div>
+                <div class="flex justify-end pt-2"><Button label="Close" severity="secondary" outlined @click="showPayrollDetail = false" /></div>
+            </div>
+        </Dialog>
 
         <Dialog v-model:visible="showPaymentModal" modal header="Add Payment" :style="{ width: '48rem' }">
             <form class="form-grid" @submit.prevent="savePayment">

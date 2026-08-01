@@ -22,35 +22,50 @@ class AppointmentController extends Controller
     {
         $bookingDraft = null;
         $inquiryId = request()->integer('inquiry');
+        $fromDate  = request('from_date');
+        $toDate    = request('to_date');
 
         if ($inquiryId) {
             $inquiry = Inquiry::query()->with(['patient', 'branch'])->find($inquiryId);
 
             if ($inquiry) {
                 $bookingDraft = [
-                    'inquiry_id' => $inquiry->id,
-                    'branch_id' => $inquiry->branch_id,
-                    'patient_id' => $inquiry->patient_id,
+                    'inquiry_id'   => $inquiry->id,
+                    'branch_id'    => $inquiry->branch_id,
+                    'patient_id'   => $inquiry->patient_id,
                     'patient_name' => $inquiry->patient?->name ?? $inquiry->name,
-                    'phone' => $inquiry->patient?->phone ?? $inquiry->phone,
-                    'email' => $inquiry->patient?->email ?? $inquiry->email,
-                    'specialty' => $inquiry->treatment_interest,
+                    'phone'        => $inquiry->patient?->phone ?? $inquiry->phone,
+                    'email'        => $inquiry->patient?->email ?? $inquiry->email,
+                    'specialty'    => $inquiry->treatment_interest,
                     'treatment_name' => $inquiry->treatment_interest,
-                    'notes' => $inquiry->notes,
+                    'notes'        => $inquiry->notes,
                 ];
             }
         }
 
+        $appointmentsQuery = Appointment::query()
+            ->with(['branch', 'patient', 'doctorProfile.user', 'bookedBy'])
+            ->latest('appointment_date');
+
+        if ($fromDate) {
+            $appointmentsQuery->whereDate('created_at', '>=', $fromDate);
+        }
+
+        if ($toDate) {
+            $appointmentsQuery->whereDate('created_at', '<=', $toDate);
+        }
+
         return Inertia::render('Appointments/Index', [
-            'appointments' => Appointment::query()
-                ->with(['branch', 'patient', 'doctorProfile.user', 'bookedBy'])
-                ->latest('appointment_date')
-                ->get(),
-            'branches' => Branch::query()->orderBy('name')->get(['id', 'name']),
-            'patients' => Patient::query()->orderBy('name')->get(['id', 'name', 'phone']),
-            'doctors' => DoctorProfile::query()->with('user')->orderBy('specialty')->get(),
-            'specialties' => ['Orthodontics', 'Root Canal', 'Implants', 'Pediatric Dentistry', 'Cosmetic Dentistry', 'General Dentistry'],
+            'appointments' => $appointmentsQuery->get(),
+            'branches'     => Branch::query()->orderBy('name')->get(['id', 'name']),
+            'patients'     => Patient::query()->orderBy('name')->get(['id', 'name', 'phone']),
+            'doctors'      => DoctorProfile::query()->with('user')->orderBy('specialty')->get(),
+            'specialties'  => ['Orthodontics', 'Root Canal', 'Implants', 'Pediatric Dentistry', 'Cosmetic Dentistry', 'General Dentistry'],
             'bookingDraft' => $bookingDraft,
+            'filters'      => [
+                'from_date' => $fromDate,
+                'to_date'   => $toDate,
+            ],
         ]);
     }
 
@@ -208,5 +223,35 @@ class AppointmentController extends Controller
         $appointment->update($validated);
 
         return redirect()->route('appointments.index')->with('success', 'Appointment updated.');
+    }
+
+    public function update(Appointment $appointment)
+    {
+        $validated = request()->validate([
+            'branch_id'        => ['required', 'exists:branches,id'],
+            'patient_id'       => ['nullable', 'exists:patients,id'],
+            'doctor_profile_id'=> ['nullable', 'exists:doctor_profiles,id'],
+            'appointment_date' => ['required', 'date'],
+            'start_time'       => ['required'],
+            'end_time'         => ['required'],
+            'specialty'        => ['required', 'string', 'max:100'],
+            'treatment_name'   => ['required', 'string', 'max:255'],
+            'status'           => ['required', 'string', 'max:50'],
+            'visit_type'       => ['required', 'string', 'max:50'],
+            'estimated_amount' => ['nullable', 'numeric'],
+            'paid_amount'      => ['nullable', 'numeric'],
+            'notes'            => ['nullable', 'string'],
+        ]);
+
+        $appointment->update($validated);
+
+        return redirect()->route('appointments.index')->with('success', 'Appointment updated.');
+    }
+
+    public function destroy(Appointment $appointment)
+    {
+        $appointment->delete();
+
+        return redirect()->route('appointments.index')->with('success', 'Appointment deleted.');
     }
 }

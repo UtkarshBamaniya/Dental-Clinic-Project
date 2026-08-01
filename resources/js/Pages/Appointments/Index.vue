@@ -6,7 +6,9 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import Button from 'primevue/button';
 import Card from 'primevue/card';
 import Column from 'primevue/column';
+import ContextMenu from 'primevue/contextmenu';
 import DataTable from 'primevue/datatable';
+import DatePicker from 'primevue/datepicker';
 import Dialog from 'primevue/dialog';
 import InputNumber from 'primevue/inputnumber';
 import InputText from 'primevue/inputtext';
@@ -21,14 +23,37 @@ const props = defineProps({
     doctors: Array,
     specialties: Array,
     bookingDraft: Object,
+    filters: Object,
 });
 
 const showCreateModal = ref(Boolean(props.bookingDraft));
-const filters = ref({
+const localFilters = ref({
     search: '',
     branchId: null,
     status: null,
 });
+
+const dateFrom = ref(props.filters?.from_date ? new Date(props.filters.from_date) : null);
+const dateTo   = ref(props.filters?.to_date   ? new Date(props.filters.to_date)   : null);
+
+function formatDate(date) {
+    if (!date) return null;
+    const d = new Date(date);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function generate() {
+    router.get(route('appointments.index'), {
+        from_date: formatDate(dateFrom.value),
+        to_date:   formatDate(dateTo.value),
+    }, { preserveState: true, preserveScroll: true });
+}
+
+function resetDateFilter() {
+    dateFrom.value = null;
+    dateTo.value   = null;
+    router.get(route('appointments.index'), {}, { preserveState: true, preserveScroll: true });
+}
 
 const form = useForm({
     inquiry_id: props.bookingDraft?.inquiry_id ?? null,
@@ -66,14 +91,14 @@ const doctorOptions = props.doctors.map((doctor) => ({
 
 const filteredAppointments = computed(() =>
     props.appointments.filter((appointment) => {
-        const search = filters.value.search.trim().toLowerCase();
+        const search = localFilters.value.search.trim().toLowerCase();
         const matchesSearch =
             !search ||
             appointment.patient?.name?.toLowerCase().includes(search) ||
             appointment.treatment_name?.toLowerCase().includes(search) ||
             appointment.doctor_profile?.user?.name?.toLowerCase().includes(search);
-        const matchesBranch = !filters.value.branchId || appointment.branch_id === filters.value.branchId;
-        const matchesStatus = !filters.value.status || appointment.status === filters.value.status;
+        const matchesBranch = !localFilters.value.branchId || appointment.branch_id === localFilters.value.branchId;
+        const matchesStatus = !localFilters.value.status || appointment.status === localFilters.value.status;
 
         return matchesSearch && matchesBranch && matchesStatus;
     }),
@@ -119,6 +144,65 @@ function submit() {
 function updateStatus(id) {
     router.patch(route('appointments.status', id), { status: statusDrafts[id] }, { preserveScroll: true });
 }
+
+// ── Edit modal ────────────────────────────────────────────────────────────────
+const showEditModal       = ref(false);
+const editingAppointment  = ref(null);
+const editForm = useForm({
+    branch_id: null, patient_id: null, doctor_profile_id: null,
+    appointment_date: '', start_time: '', end_time: '',
+    specialty: '', treatment_name: '', status: '', visit_type: '',
+    estimated_amount: 0, paid_amount: 0, notes: '',
+});
+function openEditModal(apt) {
+    editingAppointment.value      = apt;
+    editForm.branch_id            = apt.branch_id;
+    editForm.patient_id           = apt.patient_id;
+    editForm.doctor_profile_id    = apt.doctor_profile_id;
+    editForm.appointment_date     = apt.appointment_date;
+    editForm.start_time           = apt.start_time;
+    editForm.end_time             = apt.end_time;
+    editForm.specialty            = apt.specialty;
+    editForm.treatment_name       = apt.treatment_name;
+    editForm.status               = apt.status;
+    editForm.visit_type           = apt.visit_type;
+    editForm.estimated_amount     = Number(apt.estimated_amount ?? 0);
+    editForm.paid_amount          = Number(apt.paid_amount ?? 0);
+    editForm.notes                = apt.notes ?? '';
+    editForm.clearErrors();
+    showEditModal.value = true;
+}
+function submitEdit() {
+    editForm.put(route('appointments.update', editingAppointment.value.id), {
+        preserveScroll: true,
+        onSuccess: () => { showEditModal.value = false; editingAppointment.value = null; },
+    });
+}
+
+// ── Show dialog ───────────────────────────────────────────────────────────────
+const showDetailDialog    = ref(false);
+const detailAppointment   = ref(null);
+function openShowDialog(apt) { detailAppointment.value = apt; showDetailDialog.value = true; }
+
+// ── Delete ────────────────────────────────────────────────────────────────────
+function deleteAppointment(apt) {
+    if (!window.confirm(`Delete appointment for "${apt.patient?.name ?? apt.treatment_name}"?`)) return;
+    router.delete(route('appointments.destroy', apt.id), { preserveScroll: true });
+}
+
+// ── Context menu ──────────────────────────────────────────────────────────────
+const ctxMenu = ref();
+const ctxRow  = ref(null);
+const ctxMenuItems = computed(() => [
+    { label: 'Show',   icon: 'pi pi-eye',    command: () => openShowDialog(ctxRow.value) },
+    { label: 'Edit',   icon: 'pi pi-pencil', command: () => openEditModal(ctxRow.value) },
+    { separator: true },
+    { label: 'Delete', icon: 'pi pi-trash',  class: 'text-red-600', command: () => deleteAppointment(ctxRow.value) },
+]);
+function onRowContextMenu(event) {
+    ctxRow.value = event.data;
+    ctxMenu.value.show(event.originalEvent);
+}
 </script>
 
 <template>
@@ -139,21 +223,28 @@ function updateStatus(id) {
 
             <div class="page-toolbar">
                 <div class="page-toolbar__filters">
-                    <InputText v-model="filters.search" placeholder="Search by patient, treatment, or doctor" />
-                    <Select v-model="filters.branchId" :options="branches" optionLabel="name" optionValue="id" placeholder="Filter by branch" showClear />
-                    <Select v-model="filters.status" :options="['booked', 'confirmed', 'completed', 'cancelled', 'no_show']" placeholder="Filter by status" showClear />
+                    <InputText v-model="localFilters.search" placeholder="Search by patient, treatment, or doctor" />
+                    <Select v-model="localFilters.branchId" :options="branches" optionLabel="name" optionValue="id" placeholder="Filter by branch" showClear />
+                    <Select v-model="localFilters.status" :options="['booked', 'confirmed', 'completed', 'cancelled', 'no_show']" placeholder="Filter by status" showClear />
+                    <DatePicker v-model="dateFrom" placeholder="From Date" dateFormat="yy-mm-dd" showIcon iconDisplay="input" />
+                    <DatePicker v-model="dateTo" placeholder="To Date" dateFormat="yy-mm-dd" showIcon iconDisplay="input" />
+                    <Button label="Generate" icon="pi pi-filter" @click="generate" />
+                    <Button v-if="dateFrom || dateTo" icon="pi pi-times" severity="secondary" outlined @click="resetDateFilter" v-tooltip="'Clear date filter'" />
                 </div>
                 <div class="page-toolbar__actions">
                     <Button label="Add Appointment" icon="pi pi-plus" @click="openCreateModal" />
                 </div>
             </div>
 
+            <!-- Context Menu -->
+            <ContextMenu ref="ctxMenu" :model="ctxMenuItems" />
+
             <Card class="glass-panel rounded-[28px] border-none shadow-none">
                 <template #title>
                     <div class="text-sm font-medium text-slate-500">Appointment List</div>
                 </template>
                 <template #content>
-                    <DataTable :value="filteredAppointments" stripedRows responsiveLayout="scroll">
+                    <DataTable :value="filteredAppointments" stripedRows responsiveLayout="scroll" contextMenu @row-contextmenu="onRowContextMenu">
                         <Column field="appointment_date" header="Date" />
                         <Column field="patient.name" header="Patient" />
                         <Column field="treatment_name" header="Treatment" />
@@ -185,7 +276,105 @@ function updateStatus(id) {
             </Card>
         </div>
 
+        <!-- ─── Show Dialog ──────────────────────────────────────────────────── -->
+        <Dialog v-model:visible="showDetailDialog" modal header="Appointment Details" :style="{ width: '48rem' }">
+            <div v-if="detailAppointment" class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div><div class="text-xs text-slate-400 uppercase tracking-wide">Patient</div><div class="mt-1 font-medium">{{ detailAppointment.patient?.name || '—' }}</div></div>
+                    <div><div class="text-xs text-slate-400 uppercase tracking-wide">Doctor</div><div class="mt-1 font-medium">{{ detailAppointment.doctor_profile?.user?.name || 'Auto assigned' }}</div></div>
+                    <div><div class="text-xs text-slate-400 uppercase tracking-wide">Date</div><div class="mt-1 font-medium">{{ detailAppointment.appointment_date }}</div></div>
+                    <div><div class="text-xs text-slate-400 uppercase tracking-wide">Time</div><div class="mt-1 font-medium">{{ detailAppointment.start_time }} – {{ detailAppointment.end_time }}</div></div>
+                    <div><div class="text-xs text-slate-400 uppercase tracking-wide">Treatment</div><div class="mt-1 font-medium">{{ detailAppointment.treatment_name }}</div></div>
+                    <div><div class="text-xs text-slate-400 uppercase tracking-wide">Specialty</div><div class="mt-1 font-medium">{{ detailAppointment.specialty }}</div></div>
+                    <div><div class="text-xs text-slate-400 uppercase tracking-wide">Visit Type</div><div class="mt-1 font-medium">{{ detailAppointment.visit_type }}</div></div>
+                    <div><div class="text-xs text-slate-400 uppercase tracking-wide">Token</div><div class="mt-1 font-medium">#{{ detailAppointment.token_no }}</div></div>
+                    <div><div class="text-xs text-slate-400 uppercase tracking-wide">Status</div><div class="mt-1"><Tag :value="detailAppointment.status" severity="info" rounded /></div></div>
+                    <div><div class="text-xs text-slate-400 uppercase tracking-wide">Estimated</div><div class="mt-1 font-medium">Rs. {{ Number(detailAppointment.estimated_amount).toLocaleString() }}</div></div>
+                    <div><div class="text-xs text-slate-400 uppercase tracking-wide">Paid</div><div class="mt-1 font-medium">Rs. {{ Number(detailAppointment.paid_amount).toLocaleString() }}</div></div>
+                    <div><div class="text-xs text-slate-400 uppercase tracking-wide">Branch</div><div class="mt-1 font-medium">{{ detailAppointment.branch?.name || '—' }}</div></div>
+                </div>
+                <div v-if="detailAppointment.notes"><div class="text-xs text-slate-400 uppercase tracking-wide">Notes</div><div class="mt-1 rounded-xl bg-slate-50 p-3 text-sm whitespace-pre-wrap">{{ detailAppointment.notes }}</div></div>
+                <div class="flex justify-between pt-2">
+                    <div class="flex gap-2">
+                        <Button label="Edit" icon="pi pi-pencil" severity="secondary" @click="showDetailDialog = false; openEditModal(detailAppointment)" />
+                        <Button label="Delete" icon="pi pi-trash" severity="danger" outlined @click="showDetailDialog = false; deleteAppointment(detailAppointment)" />
+                    </div>
+                    <Button label="Close" severity="secondary" outlined @click="showDetailDialog = false" />
+                </div>
+            </div>
+        </Dialog>
+
+        <!-- ─── Edit Dialog ──────────────────────────────────────────────────── -->
+        <Dialog v-model:visible="showEditModal" modal header="Edit Appointment" :style="{ width: '62rem' }">
+            <form class="form-grid" @submit.prevent="submitEdit">
+                <div class="grid gap-4 md:grid-cols-2">
+                    <div class="form-field">
+                        <label class="field-label">Branch<span class="field-label__required">*</span></label>
+                        <Select v-model="editForm.branch_id" :options="branches" optionLabel="name" optionValue="id" required />
+                        <small v-if="editForm.errors.branch_id" class="field-error">{{ editForm.errors.branch_id }}</small>
+                    </div>
+                    <div class="form-field">
+                        <label class="field-label">Doctor</label>
+                        <Select v-model="editForm.doctor_profile_id" :options="doctorOptions" optionLabel="label" optionValue="id" showClear />
+                    </div>
+                </div>
+
+                <div class="grid gap-4 md:grid-cols-3">
+                    <div class="form-field">
+                        <label class="field-label">Appointment Date<span class="field-label__required">*</span></label>
+                        <InputText v-model="editForm.appointment_date" type="date" required />
+                    </div>
+                    <div class="form-field">
+                        <label class="field-label">Start Time<span class="field-label__required">*</span></label>
+                        <InputText v-model="editForm.start_time" type="time" required />
+                    </div>
+                    <div class="form-field">
+                        <label class="field-label">End Time<span class="field-label__required">*</span></label>
+                        <InputText v-model="editForm.end_time" type="time" required />
+                    </div>
+                </div>
+
+                <div class="grid gap-4 md:grid-cols-2">
+                    <div class="form-field">
+                        <label class="field-label">Treatment / Purpose<span class="field-label__required">*</span></label>
+                        <InputText v-model="editForm.treatment_name" required />
+                    </div>
+                    <div class="form-field">
+                        <label class="field-label">Specialty<span class="field-label__required">*</span></label>
+                        <Select v-model="editForm.specialty" :options="specialties" required />
+                    </div>
+                </div>
+
+                <div class="grid gap-4 md:grid-cols-3">
+                    <div class="form-field">
+                        <label class="field-label">Status<span class="field-label__required">*</span></label>
+                        <Select v-model="editForm.status" :options="['booked', 'confirmed', 'completed', 'cancelled', 'no_show']" required />
+                    </div>
+                    <div class="form-field">
+                        <label class="field-label">Estimated Amount</label>
+                        <InputNumber v-model="editForm.estimated_amount" mode="currency" currency="INR" locale="en-IN" />
+                    </div>
+                    <div class="form-field">
+                        <label class="field-label">Paid Amount</label>
+                        <InputNumber v-model="editForm.paid_amount" mode="currency" currency="INR" locale="en-IN" />
+                    </div>
+                </div>
+
+                <div class="form-field">
+                    <label class="field-label">Notes</label>
+                    <Textarea v-model="editForm.notes" rows="3" />
+                </div>
+
+                <div class="flex justify-end gap-3">
+                    <Button type="button" label="Cancel" severity="secondary" outlined @click="showEditModal = false" />
+                    <Button type="submit" label="Save Changes" :loading="editForm.processing" />
+                </div>
+            </form>
+        </Dialog>
+
+        <!-- ─── Create Dialog ────────────────────────────────────────────────── -->
         <Dialog v-model:visible="showCreateModal" modal header="Add Appointment" :style="{ width: '62rem' }">
+
             <form class="form-grid" @submit.prevent="submit">
                 <div class="grid gap-4 md:grid-cols-2">
                     <div class="form-field">

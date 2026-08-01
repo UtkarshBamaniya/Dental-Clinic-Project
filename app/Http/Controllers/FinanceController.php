@@ -22,10 +22,32 @@ class FinanceController extends Controller
 
     public function index(): Response
     {
-        $payments = Payment::query()->with(['branch', 'patient', 'appointment'])->latest('payment_date')->get();
-        $expenses = Expense::query()->with('branch')->latest('expense_date')->get();
-        $payrolls = PayrollRecord::query()->with(['branch', 'user'])->latest('salary_month')->get();
-        $journals = JournalEntry::query()->with('branch')->orderByDesc('entry_date')->orderByDesc('id')->get();
+        $fromDate = request('from_date');
+        $toDate   = request('to_date');
+
+        $paymentsQuery = Payment::query()->with(['branch', 'patient', 'appointment'])->latest('payment_date');
+        $expensesQuery = Expense::query()->with('branch')->latest('expense_date');
+        $payrollsQuery = PayrollRecord::query()->with(['branch', 'user'])->latest('salary_month');
+        $journalsQuery = JournalEntry::query()->with('branch')->orderByDesc('entry_date')->orderByDesc('id');
+
+        if ($fromDate) {
+            $paymentsQuery->whereDate('created_at', '>=', $fromDate);
+            $expensesQuery->whereDate('created_at', '>=', $fromDate);
+            $payrollsQuery->whereDate('created_at', '>=', $fromDate);
+            $journalsQuery->whereDate('created_at', '>=', $fromDate);
+        }
+
+        if ($toDate) {
+            $paymentsQuery->whereDate('created_at', '<=', $toDate);
+            $expensesQuery->whereDate('created_at', '<=', $toDate);
+            $payrollsQuery->whereDate('created_at', '<=', $toDate);
+            $journalsQuery->whereDate('created_at', '<=', $toDate);
+        }
+
+        $payments = $paymentsQuery->get();
+        $expenses = $expensesQuery->get();
+        $payrolls = $payrollsQuery->get();
+        $journals = $journalsQuery->get();
 
         $income = (float) $payments->where('status', 'captured')->sum('amount');
         $operatingExpenses = (float) $expenses->sum('amount');
@@ -35,29 +57,33 @@ class FinanceController extends Controller
             ->map(function ($entries, $accountHead) {
                 return [
                     'account_head' => $accountHead,
-                    'debit' => (float) $entries->sum('debit'),
-                    'credit' => (float) $entries->sum('credit'),
-                    'balance' => (float) $entries->sum('debit') - (float) $entries->sum('credit'),
+                    'debit'        => (float) $entries->sum('debit'),
+                    'credit'       => (float) $entries->sum('credit'),
+                    'balance'      => (float) $entries->sum('debit') - (float) $entries->sum('credit'),
                 ];
             })
             ->sortBy('account_head')
             ->values();
 
         return Inertia::render('Finance/Index', [
-            'payments' => $payments,
-            'expenses' => $expenses,
-            'payrolls' => $payrolls,
-            'journals' => $journals,
-            'branches' => Branch::query()->orderBy('name')->get(['id', 'name']),
-            'patients' => Patient::query()->orderBy('name')->get(['id', 'name']),
+            'payments'     => $payments,
+            'expenses'     => $expenses,
+            'payrolls'     => $payrolls,
+            'journals'     => $journals,
+            'branches'     => Branch::query()->orderBy('name')->get(['id', 'name']),
+            'patients'     => Patient::query()->orderBy('name')->get(['id', 'name']),
             'appointments' => Appointment::query()->with('patient')->orderByDesc('appointment_date')->get(['id', 'patient_id', 'appointment_date', 'treatment_name']),
-            'staff' => User::query()->orderBy('name')->get(['id', 'name', 'monthly_salary']),
+            'staff'        => User::query()->orderBy('name')->get(['id', 'name', 'monthly_salary']),
             'ledgerSummary' => $ledgerSummary,
-            'profitLoss' => [
-                'income' => $income,
+            'profitLoss'   => [
+                'income'             => $income,
                 'operating_expenses' => $operatingExpenses,
-                'payroll_expenses' => $payrollExpense,
-                'net_profit' => $income - $operatingExpenses - $payrollExpense,
+                'payroll_expenses'   => $payrollExpense,
+                'net_profit'         => $income - $operatingExpenses - $payrollExpense,
+            ],
+            'filters' => [
+                'from_date' => $fromDate,
+                'to_date'   => $toDate,
             ],
         ]);
     }
@@ -126,5 +152,26 @@ class FinanceController extends Controller
         $this->accountingPostingService->recordPayroll($payroll);
 
         return redirect()->route('finance.index')->with('success', 'Payroll processed.');
+    }
+
+    public function destroyPayment(Payment $payment)
+    {
+        $payment->delete();
+
+        return redirect()->route('finance.index')->with('success', 'Payment deleted.');
+    }
+
+    public function destroyExpense(Expense $expense)
+    {
+        $expense->delete();
+
+        return redirect()->route('finance.index')->with('success', 'Expense deleted.');
+    }
+
+    public function destroyPayroll(PayrollRecord $payroll)
+    {
+        $payroll->delete();
+
+        return redirect()->route('finance.index')->with('success', 'Payroll deleted.');
     }
 }
