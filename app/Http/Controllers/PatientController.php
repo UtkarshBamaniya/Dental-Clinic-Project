@@ -2,85 +2,118 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\PatientRequest;
 use App\Models\Branch;
 use App\Models\Patient;
-use Carbon\Carbon;
+use App\Repositories\PatientRepo;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class PatientController extends Controller
 {
-    public function index(): Response
+    protected PatientRepo $patientRepo;
+
+    public function __construct(PatientRepo $patientRepo)
     {
-        $fromDate = request('from_date');
-        $toDate   = request('to_date');
+        $this->patientRepo = $patientRepo;
+    }
 
-        $query = Patient::query()->with('branch')->latest();
+    /**
+     * Display the patient list page.
+     * Returns JSON for DataTable AJAX fetches, Inertia page for normal requests.
+     * (Mirrors AreaMasterController::index() dual-response pattern.)
+     */
+    public function index()
+    {
+        $input = request()->all();
 
-        if ($fromDate) {
-            $query->whereDate('created_at', '>=', $fromDate);
-        }
-
-        if ($toDate) {
-            $query->whereDate('created_at', '<=', $toDate);
+        if (request()->wantsJson()) {
+            return response()->json($this->patientRepo->index($input));
         }
 
         return Inertia::render('Patients/Index', [
-            'patients' => $query->get(),
-            'branches' => Branch::query()->orderBy('name')->get(['id', 'name']),
-            'filters' => [
-                'from_date' => $fromDate,
-                'to_date'   => $toDate,
-            ],
+            'title'     => 'Patients',
+            'desc'      => 'Manage patient records – Add / Edit / Delete',
+            'routeName' => 'patients',
+            'branches'  => Branch::orderBy('name')->get(['id', 'name']),
         ]);
     }
 
-    public function store()
+    /**
+     * Show create form (unused – create dialog is handled in Index page).
+     */
+    public function create(): Response
     {
-        $validated = request()->validate([
-            'branch_id' => ['required', 'exists:branches,id'],
-            'name' => ['required', 'string', 'max:255'],
-            'phone' => ['required', 'string', 'max:20'],
-            'email' => ['nullable', 'email', 'max:255'],
-            'gender' => ['required', 'string', 'max:20'],
-            'date_of_birth' => ['nullable', 'date'],
-            'blood_group' => ['nullable', 'string', 'max:10'],
-            'address' => ['nullable', 'string'],
-            'allergies' => ['nullable', 'string'],
-            'notes' => ['nullable', 'string'],
-        ]);
-
-        $validated['patient_code'] = 'PAT-'.Carbon::now()->format('ymd').'-'.str_pad((string) (Patient::count() + 1), 3, '0', STR_PAD_LEFT);
-
-        Patient::query()->create($validated);
-
-        return redirect()->route('patients.index')->with('success', 'Patient registered.');
+        return Inertia::render('Patients/Index');
     }
 
-    public function update(Patient $patient)
+    /**
+     * Store a newly created patient.
+     */
+    public function store(PatientRequest $request)
     {
-        $validated = request()->validate([
-            'branch_id'     => ['required', 'exists:branches,id'],
-            'name'          => ['required', 'string', 'max:255'],
-            'phone'         => ['required', 'string', 'max:20'],
-            'email'         => ['nullable', 'email', 'max:255'],
-            'gender'        => ['required', 'string', 'max:20'],
-            'date_of_birth' => ['nullable', 'date'],
-            'blood_group'   => ['nullable', 'string', 'max:10'],
-            'address'       => ['nullable', 'string'],
-            'allergies'     => ['nullable', 'string'],
-            'notes'         => ['nullable', 'string'],
-        ]);
+        $this->patientRepo->create($request->validated());
 
-        $patient->update($validated);
+        if (request()->wantsJson()) {
+            return response()->json(['success' => true, 'message' => 'Patient registered successfully.']);
+        }
 
-        return redirect()->route('patients.index')->with('success', 'Patient updated.');
+        return back()->with('success', 'Patient registered successfully.');
     }
 
+    /**
+     * Return a single patient record – JSON for slide panel, Inertia for full page.
+     */
+    public function show(Patient $patient)
+    {
+        $patient->load('branch:id,name');
+
+        if (request()->wantsJson()) {
+            return response()->json($patient);
+        }
+
+        return Inertia::render('Patients/Index', compact('patient'));
+    }
+
+    /**
+     * Load data for the edit dialog – returns JSON when requested via axios.
+     */
+    public function edit(Patient $patient)
+    {
+        $patient->load('branch:id,name');
+
+        if (request()->wantsJson()) {
+            return response()->json($patient);
+        }
+
+        return Inertia::render('Patients/Index', compact('patient'));
+    }
+
+    /**
+     * Update the specified patient.
+     */
+    public function update(PatientRequest $request, Patient $patient)
+    {
+        $this->patientRepo->update($request->validated(), $patient->id);
+
+        if (request()->wantsJson()) {
+            return response()->json(['success' => true, 'message' => 'Patient updated successfully.']);
+        }
+
+        return back()->with('success', 'Patient updated successfully.');
+    }
+
+    /**
+     * Delete the specified patient.
+     */
     public function destroy(Patient $patient)
     {
-        $patient->delete();
+        $this->patientRepo->destroy($patient->id);
 
-        return redirect()->route('patients.index')->with('success', 'Patient deleted.');
+        if (request()->wantsJson()) {
+            return response()->json(['success' => true, 'message' => 'Patient deleted successfully.']);
+        }
+
+        return redirect()->route('patients.index')->with('success', 'Patient deleted successfully.');
     }
 }

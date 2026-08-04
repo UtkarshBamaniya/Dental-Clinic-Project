@@ -172,13 +172,6 @@ function logout() {
 
             <main class="layout-content">
                 <section class="layout-pagehead">
-                    <div>
-                        <div class="layout-pagehead__eyebrow">Operations hub</div>
-                        <div class="layout-pagehead__meta">
-                            {{ user?.name }} | {{ user?.job_title || roleLabel }} | {{ branchLabel }}
-                        </div>
-                    </div>
-
                     <div v-if="flashSuccess" class="layout-pagehead__flash">
                         {{ flashSuccess }}
                     </div>

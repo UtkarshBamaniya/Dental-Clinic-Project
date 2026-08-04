@@ -36,10 +36,7 @@ Route::middleware(['auth'])->group(function () {
     Route::patch('/inquiries/{inquiry}/converted', [InquiryController::class, 'markConverted'])->name('inquiries.converted');
 
     // Patients
-    Route::get('/patients', [PatientController::class, 'index'])->name('patients.index');
-    Route::post('/patients', [PatientController::class, 'store'])->name('patients.store');
-    Route::put('/patients/{patient}', [PatientController::class, 'update'])->name('patients.update');
-    Route::delete('/patients/{patient}', [PatientController::class, 'destroy'])->name('patients.destroy');
+    Route::resource('patients', PatientController::class);
 
     // Appointments
     Route::get('/appointments', [AppointmentController::class, 'index'])->name('appointments.index');
