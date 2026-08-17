@@ -30,7 +30,6 @@ class User extends Authenticatable
         'name',
         'email',
         'phone',
-        'role',
         'role_id',
         'job_title',
         'status',
@@ -99,16 +98,15 @@ class User extends Authenticatable
         return $this->role === 'doctor';
     }
 
-    public function getRoleAttribute($value): ?string
+    public function getRoleAttribute(): ?string
     {
-        return $this->roleRecord?->code ?? $value;
+        return $this->roleRecord?->code;
     }
 
     public function setRoleAttribute($value): void
     {
-        $this->attributes['role'] = $value;
-
         if ($value === null || $value === '') {
+            $this->attributes['role_id'] = null;
             return;
         }
 
@@ -122,15 +120,5 @@ class User extends Authenticatable
     public function setRoleIdAttribute($value): void
     {
         $this->attributes['role_id'] = $value;
-
-        if ($value === null || $value === '') {
-            return;
-        }
-
-        $role = Role::query()->withTrashed()->find($value);
-
-        if ($role) {
-            $this->attributes['role'] = $role->code;
-        }
     }
 }

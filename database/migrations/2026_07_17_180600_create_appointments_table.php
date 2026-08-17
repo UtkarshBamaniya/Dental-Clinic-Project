@@ -9,7 +9,7 @@ return new class extends Migration {
     {
         Schema::create('appointments', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('branch_id')->constrained()->cascadeOnDelete();
+            $table->tinyInteger('branch_id')->default(0);
             $table->foreignId('patient_id')->constrained()->cascadeOnDelete();
             $table->foreignId('doctor_profile_id')->nullable()->constrained()->nullOnDelete();
             $table->foreignId('booked_by')->nullable()->constrained('users')->nullOnDelete();
@@ -25,6 +25,7 @@ return new class extends Migration {
             $table->decimal('paid_amount', 12, 2)->default(0);
             $table->text('notes')->nullable();
             $table->timestamps();
+            $table->softDeletes();
         });
     }
 

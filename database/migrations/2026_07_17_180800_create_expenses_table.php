@@ -9,7 +9,7 @@ return new class extends Migration {
     {
         Schema::create('expenses', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('branch_id')->constrained()->cascadeOnDelete();
+            $table->tinyInteger('branch_id')->default(0);
             $table->string('category');
             $table->string('title');
             $table->string('vendor_name')->nullable();
@@ -18,6 +18,7 @@ return new class extends Migration {
             $table->string('paid_via')->default('bank');
             $table->text('notes')->nullable();
             $table->timestamps();
+            $table->softDeletes();
         });
     }
 

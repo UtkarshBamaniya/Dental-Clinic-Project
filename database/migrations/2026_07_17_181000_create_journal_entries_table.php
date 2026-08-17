@@ -9,7 +9,7 @@ return new class extends Migration {
     {
         Schema::create('journal_entries', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('branch_id')->constrained()->cascadeOnDelete();
+            $table->tinyInteger('branch_id')->default(0);
             $table->date('entry_date');
             $table->string('account_head');
             $table->string('reference_type');
@@ -18,6 +18,7 @@ return new class extends Migration {
             $table->decimal('debit', 12, 2)->default(0);
             $table->decimal('credit', 12, 2)->default(0);
             $table->timestamps();
+            $table->softDeletes();
         });
     }
 

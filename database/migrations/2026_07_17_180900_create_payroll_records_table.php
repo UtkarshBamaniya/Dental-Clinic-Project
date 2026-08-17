@@ -9,8 +9,8 @@ return new class extends Migration {
     {
         Schema::create('payroll_records', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('branch_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+            $table->tinyInteger('branch_id')->default(0);
+            $table->integer('user_id')->default(0);
             $table->date('salary_month');
             $table->decimal('gross_salary', 12, 2);
             $table->decimal('bonus', 12, 2)->default(0);

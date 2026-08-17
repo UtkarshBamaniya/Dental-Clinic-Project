@@ -31,7 +31,9 @@ class InquiryController extends Controller
             'inquiries' => $query->get(),
             'branches' => Branch::query()->orderBy('name')->get(['id', 'name']),
             'staff' => User::query()
-                ->whereIn('role', ['super_admin', 'branch_admin', 'receptionist'])
+                ->whereHas('roleRecord', function ($query) {
+                    $query->whereIn('code', ['super_admin', 'branch_admin', 'receptionist']);
+                })
                 ->orderBy('name')
                 ->get(['id', 'name']),
             'sources' => ['Walk-in', 'Website', 'WhatsApp', 'Instagram', 'Referral', 'Call'],

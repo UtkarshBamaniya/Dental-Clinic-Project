@@ -9,8 +9,8 @@ return new class extends Migration {
     {
         Schema::create('doctor_profiles', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('branch_id')->constrained()->cascadeOnDelete();
+            $table->integer('user_id')->nullable()->default(0);
+            $table->tinyInteger('branch_id')->default(0);
             $table->string('specialty');
             $table->string('room_number')->nullable();
             $table->decimal('consultation_fee', 12, 2)->default(0);

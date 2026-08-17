@@ -9,7 +9,7 @@ return new class extends Migration {
     {
         Schema::create('payments', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('branch_id')->constrained()->cascadeOnDelete();
+            $table->tinyInteger('branch_id')->default(0);
             $table->foreignId('patient_id')->nullable()->constrained()->nullOnDelete();
             $table->foreignId('appointment_id')->nullable()->constrained()->nullOnDelete();
             $table->string('invoice_number')->unique();
@@ -22,6 +22,7 @@ return new class extends Migration {
             $table->string('razorpay_reference')->nullable();
             $table->text('notes')->nullable();
             $table->timestamps();
+            $table->softDeletes();
         });
     }
 

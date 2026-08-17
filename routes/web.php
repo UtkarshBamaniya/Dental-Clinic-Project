@@ -39,10 +39,7 @@ Route::middleware(['auth'])->group(function () {
     Route::resource('patients', PatientController::class);
 
     // Appointments
-    Route::get('/appointments', [AppointmentController::class, 'index'])->name('appointments.index');
-    Route::post('/appointments', [AppointmentController::class, 'store'])->name('appointments.store');
-    Route::put('/appointments/{appointment}', [AppointmentController::class, 'update'])->name('appointments.update');
-    Route::delete('/appointments/{appointment}', [AppointmentController::class, 'destroy'])->name('appointments.destroy');
+    Route::resource('appointments', AppointmentController::class);
     Route::patch('/appointments/{appointment}/status', [AppointmentController::class, 'updateStatus'])->name('appointments.status');
 
     // Staff
@@ -65,10 +62,8 @@ Route::middleware(['auth'])->group(function () {
 });
 
 Route::middleware(['auth', 'admin'])->prefix('masters')->name('masters.')->group(function () {
-    Route::get('/branches', [BranchMasterController::class, 'index'])->name('branches.index');
-    Route::post('/branches', [BranchMasterController::class, 'store'])->name('branches.store');
-    Route::put('/branches/{branch}', [BranchMasterController::class, 'update'])->name('branches.update');
-    Route::delete('/branches/{branch}', [BranchMasterController::class, 'destroy'])->name('branches.destroy');
+
+    Route::resource('branches', BranchMasterController::class);
 
     Route::get('/users', [StaffController::class, 'index'])->name('users.index');
     Route::post('/users', [StaffController::class, 'store'])->name('users.store');

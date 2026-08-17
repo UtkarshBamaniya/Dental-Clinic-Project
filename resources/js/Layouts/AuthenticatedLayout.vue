@@ -20,18 +20,31 @@ const page = usePage();
 const user = computed(() => page.props.auth.user);
 const flashSuccess = computed(() => page.props.flash?.success);
 const mobileMenuOpen = ref(false);
+const userRoleCode = computed(
+    () =>
+        user.value?.role ??
+        user.value?.role_record?.code ??
+        user.value?.roleRecord?.code ??
+        '',
+);
 
 const menuGroups = computed(() =>
     createAppMenu(route)
         .map((group) => ({
             ...group,
-            items: group.items.filter((item) => item.roles.includes(user.value?.role)),
+            items: group.items.filter((item) => item.roles.includes(userRoleCode.value)),
         }))
         .filter((group) => group.items.length > 0),
 );
 
 const activePath = computed(() => page.url);
-const roleLabel = computed(() => user.value?.role_record?.name || user.value?.role?.replace(/_/g, ' ') || 'staff');
+const roleLabel = computed(
+    () =>
+        user.value?.role_record?.name ??
+        user.value?.roleRecord?.name ??
+        userRoleCode.value?.replace(/_/g, ' ') ??
+        'staff',
+);
 const branchLabel = computed(() => user.value?.branch?.name || 'Global access');
 const initials = computed(() => user.value?.name?.charAt(0)?.toUpperCase() || 'S');
 

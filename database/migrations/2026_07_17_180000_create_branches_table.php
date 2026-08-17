@@ -16,6 +16,7 @@ return new class extends Migration {
             $table->string('city')->nullable();
             $table->text('address')->nullable();
             $table->string('manager_name')->nullable();
+            $table->tinyInteger('is_main')->default(0);
             $table->timestamps();
             $table->softDeletes();
         });

@@ -9,7 +9,7 @@ return new class extends Migration {
     {
         Schema::create('inquiries', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('branch_id')->constrained()->cascadeOnDelete();
+            $table->tinyInteger('branch_id')->default(0);
             $table->foreignId('patient_id')->nullable()->constrained()->nullOnDelete();
             $table->foreignId('assigned_to')->nullable()->constrained('users')->nullOnDelete();
             $table->string('name');

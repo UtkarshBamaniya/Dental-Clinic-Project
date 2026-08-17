@@ -42,13 +42,14 @@ class DatabaseSeeder extends Seeder
         });
 
         $mainBranch = Branch::query()->create([
-            'name' => 'SmileWorks Dental - Ahmedabad',
-            'code' => 'AMD01',
+            'name' => 'SmileWorks Dental - Vadodara',
+            'code' => 'VA01',
             'phone' => '+91 98765 00001',
-            'email' => 'ahmedabad@smileworks.test',
-            'city' => 'Ahmedabad',
-            'address' => 'Satellite Road, Ahmedabad',
-            'manager_name' => 'Dr. Mehul Shah',
+            'email' => 'vadodara@smileworks.test',
+            'city' => 'Vadodara',
+            'address' => 'Alkapuri, Vadodara',
+            'manager_name' => 'Dr. Nilesh Patel',
+            'is_main' => 1,
         ]);
 
         $secondBranch = Branch::query()->create([
