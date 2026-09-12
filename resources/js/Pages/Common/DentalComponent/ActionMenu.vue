@@ -22,7 +22,7 @@ import { computed, ref } from 'vue';
 import { useToast } from 'primevue/usetoast';
 import Button from 'primevue/button';
 import Dialog from 'primevue/dialog';
-import Menu from 'primevue/menu';
+import ContextMenu from 'primevue/contextmenu';
 
 const emit = defineEmits(['fetch-data']);
 
@@ -65,7 +65,7 @@ const menuItems = computed(() => {
         items.push({
             label: 'Delete',
             icon:  'pi pi-trash',
-            class: '!text-red-600',
+            class: 'delete-item',
             command: () => { confirmDelete.value = true; },
         });
     }
@@ -113,8 +113,18 @@ defineExpose({ showMenu, menuItems });
 </script>
 
 <template>
-    <!-- Floating popup menu (anchored to the ≡ button position) -->
-    <Menu ref="menu" :model="menuItems" popup />
+    <!-- Floating context menu – positioned at exact cursor coordinates -->
+    <ContextMenu
+        ref="menu"
+        :model="menuItems"
+        class="action-popup-menu"
+        :pt="{
+            root: { style: 'min-width: 9rem; width: 9rem; padding: 0.25rem 0; border-radius: 0.625rem; box-shadow: 0 8px 24px rgba(0,0,0,0.12); border: 1px solid #e2e8f0;' },
+            list: { style: 'padding: 0;' },
+            item: { style: 'padding: 0;' },
+            itemContent: { style: 'padding: 0;' },
+        }"
+    />
 
     <!-- Delete confirmation dialog -->
     <Dialog
@@ -132,8 +142,66 @@ defineExpose({ showMenu, menuItems });
             </span>
         </div>
         <template #footer>
-            <Button label="Cancel" icon="pi pi-times" text  @click="confirmDelete = false" :disabled="deleting" />
+            <Button label="Cancel" icon="pi pi-times" text @click="confirmDelete = false" :disabled="deleting" />
             <Button label="Delete" icon="pi pi-trash" severity="danger" :loading="deleting" @click="doDelete" />
         </template>
     </Dialog>
 </template>
+
+<style>
+/* Compact action context menu */
+.action-popup-menu.p-contextmenu {
+    min-width: 9rem !important;
+    width: 9rem !important;
+    padding: 0.25rem 0 !important;
+    border-radius: 0.625rem !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12) !important;
+    border: 1px solid #e2e8f0 !important;
+}
+
+.action-popup-menu .p-contextmenu-item-link {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.45rem 0.85rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: #374151;
+    border-radius: 0;
+    transition: background 0.15s ease;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.action-popup-menu .p-contextmenu-item-link:hover {
+    background: #f1f5f9;
+    color: #0f172a;
+}
+
+.action-popup-menu .p-contextmenu-item-link .p-contextmenu-item-icon {
+    font-size: 0.8rem;
+    color: #64748b;
+}
+
+.action-popup-menu .p-contextmenu-item-link:hover .p-contextmenu-item-icon {
+    color: #0f172a;
+}
+
+/* Delete item – red text + icon */
+.action-popup-menu .p-contextmenu-item.delete-item .p-contextmenu-item-link {
+    color: #dc2626 !important;
+}
+
+.action-popup-menu .p-contextmenu-item.delete-item .p-contextmenu-item-link .p-contextmenu-item-icon {
+    color: #dc2626 !important;
+}
+
+.action-popup-menu .p-contextmenu-item.delete-item .p-contextmenu-item-link:hover {
+    background: #fef2f2 !important;
+}
+
+.action-popup-menu .p-contextmenu-separator {
+    margin: 0.2rem 0;
+    border-color: #e2e8f0;
+}
+</style>

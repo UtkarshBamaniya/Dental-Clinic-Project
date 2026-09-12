@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\AppointmentRequest;
 use App\Models\Appointment;
 use App\Models\Branch;
 use App\Models\DoctorProfile;
 use App\Models\Inquiry;
 use App\Models\Patient;
+use App\Repositories\AppointmentRepo;
 use Carbon\Carbon;
 use App\Services\AppointmentAssignmentService;
 use Inertia\Inertia;
@@ -14,12 +16,16 @@ use Inertia\Response;
 
 class AppointmentController extends Controller
 {
-    public function __construct(protected AppointmentAssignmentService $assignmentService)
+    public function __construct(
+        protected AppointmentAssignmentService $assignmentService,
+        protected AppointmentRepo $appointmentRepo,
+    )
     {
     }
 
-    public function index(): Response
+    public function index()
     {
+        $input = request()->all();
         $bookingDraft = null;
         $inquiryId = request()->integer('inquiry');
         $fromDate  = request('from_date');
@@ -43,20 +49,14 @@ class AppointmentController extends Controller
             }
         }
 
-        $appointmentsQuery = Appointment::query()
-            ->with(['branch', 'patient', 'doctorProfile.user', 'bookedBy'])
-            ->latest('appointment_date');
-
-        if ($fromDate) {
-            $appointmentsQuery->whereDate('created_at', '>=', $fromDate);
-        }
-
-        if ($toDate) {
-            $appointmentsQuery->whereDate('created_at', '<=', $toDate);
+        if (request()->wantsJson()) {
+            return response()->json($this->appointmentRepo->index($input));
         }
 
         return Inertia::render('Appointments/Index', [
-            'appointments' => $appointmentsQuery->get(),
+            'title'        => 'Appointments',
+            'desc'         => 'Manage appointment bookings and schedules',
+            'routeName'    => 'appointments',
             'branches'     => Branch::query()->orderBy('name')->get(['id', 'name']),
             'patients'     => Patient::query()->orderBy('name')->get(['id', 'name', 'phone']),
             'doctors'      => DoctorProfile::query()->with('user')->orderBy('specialty')->get(),
@@ -77,69 +77,12 @@ class AppointmentController extends Controller
         ]);
     }
 
-    public function store()
+    public function store(AppointmentRequest $request)
     {
-        $validated = request()->validate([
-            'branch_id' => ['required', 'exists:branches,id'],
-            'patient_id' => ['nullable', 'exists:patients,id'],
-            'doctor_profile_id' => ['nullable', 'exists:doctor_profiles,id'],
-            'inquiry_id' => ['nullable', 'exists:inquiries,id'],
-            'patient_name' => ['nullable', 'string', 'max:255'],
-            'phone' => ['nullable', 'string', 'max:20'],
-            'email' => ['nullable', 'email', 'max:255'],
-            'appointment_date' => ['required', 'date'],
-            'start_time' => ['required'],
-            'end_time' => ['required'],
-            'specialty' => ['required', 'string', 'max:100'],
-            'treatment_name' => ['required', 'string', 'max:255'],
-            'status' => ['required', 'string', 'max:50'],
-            'visit_type' => ['required', 'string', 'max:50'],
-            'estimated_amount' => ['nullable', 'numeric'],
-            'paid_amount' => ['nullable', 'numeric'],
-            'notes' => ['nullable', 'string'],
-        ]);
+        $this->appointmentRepo->create($request->validated());
 
-        if (empty($validated['patient_id'])) {
-            $validated['patient_id'] = Patient::query()->create([
-                'branch_id' => $validated['branch_id'],
-                'patient_code' => 'PAT-'.Carbon::now()->format('ymd').'-'.str_pad((string) (Patient::count() + 1), 3, '0', STR_PAD_LEFT),
-                'name' => $validated['patient_name'] ?? 'Walk-in Patient',
-                'phone' => $validated['phone'] ?? '',
-                'email' => $validated['email'] ?? null,
-                'gender' => 'Other',
-                'notes' => $validated['notes'] ?? null,
-            ])->id;
-        }
-
-        if (empty($validated['doctor_profile_id'])) {
-            $doctor = $this->assignmentService->assign(
-                branchId: (int) $validated['branch_id'],
-                specialty: $validated['specialty'],
-                appointmentDate: $validated['appointment_date'],
-                startTime: $validated['start_time'],
-            );
-
-            $validated['doctor_profile_id'] = $doctor?->id;
-        }
-
-        $validated['booked_by'] = request()->user()->id;
-        $validated['token_no'] = $this->assignmentService->nextToken(
-            branchId: (int) $validated['branch_id'],
-            appointmentDate: $validated['appointment_date'],
-        );
-
-        Appointment::query()->create(collect($validated)->except([
-            'patient_name',
-            'phone',
-            'email',
-            'inquiry_id',
-        ])->all());
-
-        if (!empty($validated['inquiry_id'])) {
-            Inquiry::query()->whereKey($validated['inquiry_id'])->update([
-                'patient_id' => $validated['patient_id'],
-                'status' => 'converted',
-            ]);
+        if (request()->wantsJson()) {
+            return response()->json(['success' => true, 'message' => 'Appointment booked.']);
         }
 
         return redirect()->route('appointments.index')->with('success', 'Appointment booked.');
@@ -225,32 +168,46 @@ class AppointmentController extends Controller
         return redirect()->route('appointments.index')->with('success', 'Appointment updated.');
     }
 
-    public function update(Appointment $appointment)
+    public function show(Appointment $appointment)
     {
-        $validated = request()->validate([
-            'branch_id'        => ['required', 'exists:branches,id'],
-            'patient_id'       => ['nullable', 'exists:patients,id'],
-            'doctor_profile_id'=> ['nullable', 'exists:doctor_profiles,id'],
-            'appointment_date' => ['required', 'date'],
-            'start_time'       => ['required'],
-            'end_time'         => ['required'],
-            'specialty'        => ['required', 'string', 'max:100'],
-            'treatment_name'   => ['required', 'string', 'max:255'],
-            'status'           => ['required', 'string', 'max:50'],
-            'visit_type'       => ['required', 'string', 'max:50'],
-            'estimated_amount' => ['nullable', 'numeric'],
-            'paid_amount'      => ['nullable', 'numeric'],
-            'notes'            => ['nullable', 'string'],
-        ]);
+        $appointment = $this->appointmentRepo->find($appointment->id);
 
-        $appointment->update($validated);
+        if (request()->wantsJson()) {
+            return response()->json($appointment);
+        }
+
+        return Inertia::render('Appointments/Index', compact('appointment'));
+    }
+
+    public function edit(Appointment $appointment)
+    {
+        $appointment = $this->appointmentRepo->find($appointment->id);
+
+        if (request()->wantsJson()) {
+            return response()->json($appointment);
+        }
+
+        return Inertia::render('Appointments/Index', compact('appointment'));
+    }
+
+    public function update(AppointmentRequest $request, Appointment $appointment)
+    {
+        $this->appointmentRepo->update($request->validated(), $appointment->id);
+
+        if (request()->wantsJson()) {
+            return response()->json(['success' => true, 'message' => 'Appointment updated.']);
+        }
 
         return redirect()->route('appointments.index')->with('success', 'Appointment updated.');
     }
 
     public function destroy(Appointment $appointment)
     {
-        $appointment->delete();
+        $this->appointmentRepo->destroy($appointment->id);
+
+        if (request()->wantsJson()) {
+            return response()->json(['success' => true, 'message' => 'Appointment deleted.']);
+        }
 
         return redirect()->route('appointments.index')->with('success', 'Appointment deleted.');
     }

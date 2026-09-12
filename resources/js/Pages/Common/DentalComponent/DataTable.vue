@@ -26,7 +26,9 @@ import axios from 'axios';
 import Button from 'primevue/button';
 import Column from 'primevue/column';
 import DataTablePV from 'primevue/datatable';
+import DatePicker from 'primevue/datepicker';
 import InputText from 'primevue/inputtext';
+import Select from 'primevue/select';
 import { useToast } from 'primevue/usetoast';
 import { computed, onMounted, ref, watch } from 'vue';
 
@@ -137,6 +139,11 @@ const fetchData = async () => {
     }
 };
 
+const onRowContextMenu = (e) => {
+    e.originalEvent.preventDefault();
+    emit('row-action', { event: e.originalEvent, data: e.data });
+};
+
 // ── Pagination & Sort events ─────────────────────────────────────────────────
 const onPage = (e) => {
     page.value = e.page + 1;
@@ -156,6 +163,17 @@ const onFilterChange = () => {
     page.value = 1;
     clearTimeout(filterTimer);
     filterTimer = setTimeout(fetchData, 400);
+};
+
+const formatDate = (value) => {
+    if (!value) return null;
+    const date = new Date(value);
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+};
+
+const onDateFilterChange = (filterName) => {
+    filters.value[filterName] = formatDate(filters.value[filterName]);
+    onFilterChange();
 };
 
 // ── Nested field resolver (e.g. 'branch.name' → data.branch?.name) ──────────
@@ -184,10 +202,12 @@ defineExpose({ fetchData, columns });
         stripedRows
         removableSort
         scrollable
+        contextMenu
         dataKey="id"
-        class="p-datatable-sm"
+        class="p-datatable-sm border border-slate-200/60 rounded-xl overflow-hidden shadow-sm"
         @page="onPage"
         @sort="onSort"
+        @row-contextmenu="onRowContextMenu"
     >
         <!-- ── Empty / Loading states ──────────────────────────────── -->
         <template #empty>
@@ -226,6 +246,8 @@ defineExpose({ fetchData, columns });
                 :header="col.header"
                 :sortable="col.sortable ?? false"
                 :style="col.style"
+                :showFilterMenu="false"
+                :showClearButton="false"
             >
                 <!-- Filter input row -->
                 <template v-if="col.filterType === 'text'" #filter>
@@ -234,6 +256,39 @@ defineExpose({ fetchData, columns });
                         :placeholder="`Search ${col.header}`"
                         class="text-xs w-full"
                         @input="onFilterChange"
+                    />
+                </template>
+                <template v-else-if="col.filterType === 'number'" #filter>
+                    <InputText
+                        v-model="filters[col.filterNm]"
+                        :placeholder="`Search ${col.header}`"
+                        class="text-xs w-full"
+                        type="number"
+                        @input="onFilterChange"
+                    />
+                </template>
+                <template v-else-if="col.filterType === 'select'" #filter>
+                    <Select
+                        v-model="filters[col.filterNm]"
+                        :options="col.filterOptions ?? []"
+                        :optionLabel="col.optionLabel"
+                        :optionValue="col.optionValue"
+                        :placeholder="`Filter ${col.header}`"
+                        class="text-xs w-full"
+                        showClear
+                        @change="onFilterChange"
+                    />
+                </template>
+                <template v-else-if="col.filterType === 'date'" #filter>
+                    <DatePicker
+                        v-model="filters[col.filterNm]"
+                        placeholder="YYYY-MM-DD"
+                        dateFormat="yy-mm-dd"
+                        showIcon
+                        iconDisplay="input"
+                        class="text-xs w-full"
+                        @date-select="onDateFilterChange(col.filterNm)"
+                        @clear-click="onFilterChange"
                     />
                 </template>
 
@@ -252,6 +307,8 @@ defineExpose({ fetchData, columns });
             style="width: 64px; min-width: 64px"
             frozen
             alignFrozen="right"
+            :showFilterMenu="false"
+            :showClearButton="false"
         >
             <template #body="{ data }">
                 <Button
@@ -261,7 +318,7 @@ defineExpose({ fetchData, columns });
                     size="small"
                     severity="secondary"
                     aria-label="Row actions"
-                    @click.stop="$emit('row-action', { event: $event, data })"
+                    @click.stop.prevent="$emit('row-action', { event: $event, data })"
                 />
             </template>
         </Column>

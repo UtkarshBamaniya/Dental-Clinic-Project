@@ -1,6 +1,7 @@
 <script setup>
 import { ref } from 'vue';
 import { useForm } from '@inertiajs/vue3';
+import axios from 'axios';
 import { route } from 'ziggy-js';
 import Dialog from 'primevue/dialog';
 import Select from 'primevue/select';
@@ -8,6 +9,7 @@ import InputText from 'primevue/inputtext';
 import InputNumber from 'primevue/inputnumber';
 import Textarea from 'primevue/textarea';
 import Button from 'primevue/button';
+import { useToast } from 'primevue/usetoast';
 
 const props = defineProps({
     branches: Array,
@@ -15,11 +17,14 @@ const props = defineProps({
     doctorOptions: Array,
     specialties: Array,
     bookingDraft: Object,
+    routeName: { type: String, default: 'appointments' },
 });
 
-const emit = defineEmits(['saved']);
+const emit = defineEmits(['saved', 'fetch-data']);
+const toast = useToast();
 
-const showCreateModal = ref(Boolean(props.bookingDraft));
+const showAppointmentModal = ref(Boolean(props.bookingDraft));
+const editingAppointment = ref(null);
 const form = useForm({
     inquiry_id: props.bookingDraft?.inquiry_id ?? null,
     branch_id: props.bookingDraft?.branch_id ?? props.branches[0]?.id ?? null,
@@ -62,70 +67,83 @@ function resetForm() {
     form.visit_type = 'consultation';
     form.estimated_amount = 0;
     form.paid_amount = 0;
+    editingAppointment.value = null;
 }
 
 function openCreateModal() {
     resetForm();
-    showCreateModal.value = true;
+    showAppointmentModal.value = true;
 }
 
 function submit() {
-    form.post(route('appointments.store'), {
+    if (editingAppointment.value) {
+        form.put(route(`${props.routeName}.update`, editingAppointment.value.id), {
+            preserveScroll: true,
+            onSuccess: () => {
+                resetForm();
+                showAppointmentModal.value = false;
+                emit('fetch-data');
+                emit('saved');
+            },
+        });
+
+        return;
+    }
+
+    form.post(route(`${props.routeName}.store`), {
         preserveScroll: true,
         onSuccess: () => {
             resetForm();
-            showCreateModal.value = false;
+            showAppointmentModal.value = false;
+            emit('fetch-data');
             emit('saved');
         },
     });
 }
 
 // ── Edit modal ────────────────────────────────────────────────────────────────
-const showEditModal = ref(false);
-const editingAppointment = ref(null);
-const editForm = useForm({
-    branch_id: null, patient_id: null, doctor_profile_id: null,
-    appointment_date: '', start_time: '', end_time: '',
-    specialty: '', treatment_name: '', status: '', visit_type: '',
-    estimated_amount: 0, paid_amount: 0, notes: '',
-});
-
 function openEditModal(apt) {
     editingAppointment.value = apt;
-    editForm.branch_id = apt.branch_id;
-    editForm.patient_id = apt.patient_id;
-    editForm.doctor_profile_id = apt.doctor_profile_id;
-    editForm.appointment_date = apt.appointment_date;
-    editForm.start_time = apt.start_time;
-    editForm.end_time = apt.end_time;
-    editForm.specialty = apt.specialty;
-    editForm.treatment_name = apt.treatment_name;
-    editForm.status = apt.status;
-    editForm.visit_type = apt.visit_type;
-    editForm.estimated_amount = Number(apt.estimated_amount ?? 0);
-    editForm.paid_amount = Number(apt.paid_amount ?? 0);
-    editForm.notes = apt.notes ?? '';
-    editForm.clearErrors();
-    showEditModal.value = true;
+    form.branch_id = apt.branch_id;
+    form.patient_id = apt.patient_id;
+    form.patient_name = apt.patient?.name ?? '';
+    form.phone = apt.patient?.phone ?? '';
+    form.email = apt.patient?.email ?? '';
+    form.inquiry_id = null;
+    form.doctor_profile_id = apt.doctor_profile_id;
+    form.appointment_date = apt.appointment_date;
+    form.start_time = apt.start_time;
+    form.end_time = apt.end_time;
+    form.specialty = apt.specialty;
+    form.treatment_name = apt.treatment_name;
+    form.status = apt.status;
+    form.visit_type = apt.visit_type;
+    form.estimated_amount = Number(apt.estimated_amount ?? 0);
+    form.paid_amount = Number(apt.paid_amount ?? 0);
+    form.notes = apt.notes ?? '';
+    form.clearErrors();
+    showAppointmentModal.value = true;
 }
 
-function submitEdit() {
-    editForm.put(route('appointments.update', editingAppointment.value.id), {
-        preserveScroll: true,
-        onSuccess: () => { 
-            showEditModal.value = false; 
-            editingAppointment.value = null; 
-            emit('saved'); 
-        },
-    });
-}
+const openNew = openCreateModal;
 
-defineExpose({ openCreateModal, openEditModal });
+const openEdit = async (id) => {
+    try {
+        const { data } = await axios.get(route(`${props.routeName}.edit`, id), {
+            headers: { Accept: 'application/json' },
+        });
+        openEditModal(data);
+    } catch {
+        toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to load appointment data.', life: 3000 });
+    }
+};
+
+defineExpose({ openCreateModal, openEditModal, openNew, openEdit });
 </script>
 
 <template>
     <!-- ─── Create Dialog ────────────────────────────────────────────────── -->
-    <Dialog v-model:visible="showCreateModal" modal header="Add Appointment" :style="{ width: '62rem' }">
+    <Dialog v-model:visible="showAppointmentModal" modal :header="editingAppointment ? 'Edit Appointment' : 'Add Appointment'" :style="{ width: '62rem' }">
         <form class="form-grid" @submit.prevent="submit">
             <div class="grid gap-4 md:grid-cols-2">
                 <div class="form-field">
@@ -231,76 +249,8 @@ defineExpose({ openCreateModal, openEditModal });
             </div>
 
             <div class="flex justify-end gap-3">
-                <Button type="button" label="Cancel" severity="secondary" outlined @click="showCreateModal = false" />
-                <Button type="submit" label="Save Appointment" :loading="form.processing" />
-            </div>
-        </form>
-    </Dialog>
-
-    <!-- ─── Edit Dialog ──────────────────────────────────────────────────── -->
-    <Dialog v-model:visible="showEditModal" modal header="Edit Appointment" :style="{ width: '62rem' }">
-        <form class="form-grid" @submit.prevent="submitEdit">
-            <div class="grid gap-4 md:grid-cols-2">
-                <div class="form-field">
-                    <label class="field-label">Branch<span class="field-label__required">*</span></label>
-                    <Select v-model="editForm.branch_id" :options="branches" optionLabel="name" optionValue="id" required />
-                    <small v-if="editForm.errors.branch_id" class="field-error">{{ editForm.errors.branch_id }}</small>
-                </div>
-                <div class="form-field">
-                    <label class="field-label">Doctor</label>
-                    <Select v-model="editForm.doctor_profile_id" :options="doctorOptions" optionLabel="label" optionValue="id" showClear />
-                </div>
-            </div>
-
-            <div class="grid gap-4 md:grid-cols-3">
-                <div class="form-field">
-                    <label class="field-label">Appointment Date<span class="field-label__required">*</span></label>
-                    <InputText v-model="editForm.appointment_date" type="date" required />
-                </div>
-                <div class="form-field">
-                    <label class="field-label">Start Time<span class="field-label__required">*</span></label>
-                    <InputText v-model="editForm.start_time" type="time" required />
-                </div>
-                <div class="form-field">
-                    <label class="field-label">End Time<span class="field-label__required">*</span></label>
-                    <InputText v-model="editForm.end_time" type="time" required />
-                </div>
-            </div>
-
-            <div class="grid gap-4 md:grid-cols-2">
-                <div class="form-field">
-                    <label class="field-label">Treatment / Purpose<span class="field-label__required">*</span></label>
-                    <InputText v-model="editForm.treatment_name" required />
-                </div>
-                <div class="form-field">
-                    <label class="field-label">Specialty<span class="field-label__required">*</span></label>
-                    <Select v-model="editForm.specialty" :options="specialties" required />
-                </div>
-            </div>
-
-            <div class="grid gap-4 md:grid-cols-3">
-                <div class="form-field">
-                    <label class="field-label">Status<span class="field-label__required">*</span></label>
-                    <Select v-model="editForm.status" :options="['booked', 'confirmed', 'completed', 'cancelled', 'no_show']" required />
-                </div>
-                <div class="form-field">
-                    <label class="field-label">Estimated Amount</label>
-                    <InputNumber v-model="editForm.estimated_amount" mode="currency" currency="INR" locale="en-IN" />
-                </div>
-                <div class="form-field">
-                    <label class="field-label">Paid Amount</label>
-                    <InputNumber v-model="editForm.paid_amount" mode="currency" currency="INR" locale="en-IN" />
-                </div>
-            </div>
-
-            <div class="form-field">
-                <label class="field-label">Notes</label>
-                <Textarea v-model="editForm.notes" rows="3" />
-            </div>
-
-            <div class="flex justify-end gap-3">
-                <Button type="button" label="Cancel" severity="secondary" outlined @click="showEditModal = false" />
-                <Button type="submit" label="Save Changes" :loading="editForm.processing" />
+                <Button type="button" label="Cancel" severity="secondary" outlined @click="showAppointmentModal = false" />
+                <Button type="submit" :label="editingAppointment ? 'Save Changes' : 'Save Appointment'" :loading="form.processing" />
             </div>
         </form>
     </Dialog>

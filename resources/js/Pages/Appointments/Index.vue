@@ -1,129 +1,149 @@
 <script setup>
-import { computed, reactive, ref } from 'vue';
-import { router, useForm } from '@inertiajs/vue3';
-import { route } from 'ziggy-js';
+import { ref } from 'vue';
+import { router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import ActionMenu from '@/Pages/Common/DentalComponent/ActionMenu.vue';
+import ColumnArrange from '@/Pages/Common/DentalComponent/ColumnArrange.vue';
+import DataTable from '@/Pages/Common/DentalComponent/DataTable.vue';
 import Button from 'primevue/button';
 import Card from 'primevue/card';
-import Column from 'primevue/column';
-import ContextMenu from 'primevue/contextmenu';
-import DataTable from 'primevue/datatable';
-import DatePicker from 'primevue/datepicker';
-import InputText from 'primevue/inputtext';
 import Select from 'primevue/select';
 import Tag from 'primevue/tag';
+import Toolbar from 'primevue/toolbar';
+import { route } from 'ziggy-js';
 import Form from './Form.vue';
 import Show from './Show.vue';
 
 const props = defineProps({
-    appointments: Array,
-    branches: Array,
-    patients: Array,
-    doctors: Array,
-    specialties: Array,
-    bookingDraft: Object,
-    filters: Object,
+    title: { type: String, default: 'Appointments' },
+    desc: { type: String, default: 'Manage appointment bookings and schedules' },
+    routeName: { type: String, default: 'appointments' },
+    branches: { type: Array, default: () => [] },
+    patients: { type: Array, default: () => [] },
+    doctors: { type: Array, default: () => [] },
+    specialties: { type: Array, default: () => [] },
+    bookingDraft: { type: Object, default: null },
+    filters: { type: Object, default: () => ({}) },
 });
 
-const showCreateModal = ref(Boolean(props.bookingDraft));
-const localFilters = ref({
-    search: '',
-    branchId: null,
-    status: null,
-});
+const moduleNm = 'dental_appointments';
+const aug_data_table = ref(null);
+const action_menu_ref = ref(null);
+const form_ref = ref(null);
+const show_ref = ref(null);
+const statusDrafts = ref({});
 
-const dateFrom = ref(props.filters?.from_date ? new Date(props.filters.from_date) : null);
-const dateTo   = ref(props.filters?.to_date   ? new Date(props.filters.to_date)   : null);
-
-function formatDate(date) {
-    if (!date) return null;
-    const d = new Date(date);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-function generate() {
-    router.get(route('appointments.index'), {
-        from_date: formatDate(dateFrom.value),
-        to_date:   formatDate(dateTo.value),
-    }, { preserveState: true, preserveScroll: true });
-}
-
-function resetDateFilter() {
-    dateFrom.value = null;
-    dateTo.value   = null;
-    router.get(route('appointments.index'), {}, { preserveState: true, preserveScroll: true });
-}
-
-const statusDrafts = reactive(
-    props.appointments.reduce((acc, appointment) => {
-        acc[appointment.id] = appointment.status;
-        return acc;
-    }, {}),
-);
+const statusOptions = ['booked', 'confirmed', 'completed', 'cancelled', 'no_show'];
 
 const doctorOptions = props.doctors.map((doctor) => ({
     id: doctor.id,
     label: `${doctor.user.name} | ${doctor.specialty}`,
 }));
 
-const filteredAppointments = computed(() =>
-    props.appointments.filter((appointment) => {
-        const search = localFilters.value.search.trim().toLowerCase();
-        const matchesSearch =
-            !search ||
-            appointment.patient?.name?.toLowerCase().includes(search) ||
-            appointment.treatment_name?.toLowerCase().includes(search) ||
-            appointment.doctor_profile?.user?.name?.toLowerCase().includes(search);
-        const matchesBranch = !localFilters.value.branchId || appointment.branch_id === localFilters.value.branchId;
-        const matchesStatus = !localFilters.value.status || appointment.status === localFilters.value.status;
-
-        return matchesSearch && matchesBranch && matchesStatus;
-    }),
-);
-
-const formRef = ref(null);
-
-function openCreateModal() {
-    formRef.value?.openCreateModal();
-}
-
-
-function updateStatus(id) {
-    router.patch(route('appointments.status', id), { status: statusDrafts[id] }, { preserveScroll: true });
-}
-
-function openEditModal(apt) {
-    formRef.value?.openEditModal(apt);
-}
-
-// ── Show dialog ───────────────────────────────────────────────────────────────
-const showDetailDialog    = ref(false);
-const detailAppointment   = ref(null);
-function openShowDialog(apt) { detailAppointment.value = apt; showDetailDialog.value = true; }
-
-// ── Delete ────────────────────────────────────────────────────────────────────
-function deleteAppointment(apt) {
-    if (!window.confirm(`Delete appointment for "${apt.patient?.name ?? apt.treatment_name}"?`)) return;
-    router.delete(route('appointments.destroy', apt.id), { preserveScroll: true });
-}
-
-// ── Context menu ──────────────────────────────────────────────────────────────
-const ctxMenu = ref();
-const ctxRow  = ref(null);
-const ctxMenuItems = computed(() => [
-    { label: 'Show',   icon: 'pi pi-eye',    command: () => openShowDialog(ctxRow.value) },
-    { label: 'Edit',   icon: 'pi pi-pencil', command: () => openEditModal(ctxRow.value) },
-    { separator: true },
-    { label: 'Delete', icon: 'pi pi-trash',  class: 'text-red-600', command: () => deleteAppointment(ctxRow.value) },
+const allColumns = ref([
+    { key: 0, field: 'no', header: 'No', visible: true },
+    {
+        key: 1,
+        field: 'appointment_date',
+        header: 'Date',
+        filterType: 'date',
+        filterNm: 'appointment_date',
+        sortable: true,
+        visible: true,
+    },
+    {
+        key: 2,
+        field: 'patient.name',
+        header: 'Patient',
+        filterType: 'text',
+        filterNm: 'patient',
+        visible: true,
+    },
+    {
+        key: 3,
+        field: 'treatment_name',
+        header: 'Treatment',
+        filterType: 'text',
+        filterNm: 'treatment_name',
+        sortable: true,
+        visible: true,
+    },
+    {
+        key: 4,
+        field: 'doctor_profile.user.name',
+        header: 'Doctor',
+        filterType: 'text',
+        filterNm: 'doctor',
+        visible: true,
+    },
+    {
+        key: 5,
+        field: 'branch_id',
+        header: 'Branch',
+        filterType: 'select',
+        filterNm: 'branch_id',
+        filterOptions: props.branches,
+        optionLabel: 'name',
+        optionValue: 'id',
+        visible: false,
+    },
+    {
+        key: 6,
+        field: 'token_no',
+        header: 'Token',
+        filterType: 'number',
+        filterNm: 'token_no',
+        sortable: true,
+        visible: true,
+    },
+    {
+        key: 7,
+        field: 'status',
+        header: 'Status',
+        filterType: 'select',
+        filterNm: 'status',
+        filterOptions: statusOptions,
+        sortable: true,
+        visible: true,
+    },
+    {
+        key: 8,
+        field: 'paid_amount',
+        header: 'Paid',
+        sortable: true,
+        visible: true,
+    },
 ]);
-function onRowContextMenu(event) {
-    ctxRow.value = event.data;
-    ctxMenu.value.show(event.originalEvent);
-}
+
+const openCreateModal = () => {
+    form_ref.value?.openNew();
+};
+
+const onRowAction = ({ event, data }) => {
+    action_menu_ref.value?.showMenu(event, data);
+};
+
+const syncStatusDrafts = (rows) => {
+    statusDrafts.value = rows.reduce((acc, appointment) => {
+        acc[appointment.id] = appointment.status;
+        return acc;
+    }, {});
+};
+
+const updateStatus = (id) => {
+    router.patch(
+        route('appointments.status', id),
+        { status: statusDrafts.value[id] },
+        {
+            preserveScroll: true,
+            onSuccess: () => aug_data_table.value?.fetchData(),
+        },
+    );
+};
 </script>
 
 <template>
-    <AuthenticatedLayout title="Appointments">
+    <AuthenticatedLayout :title="title">
         <div class="space-y-6">
             <Card v-if="bookingDraft" class="glass-panel rounded-[28px] border-none shadow-none">
                 <template #content>
@@ -138,75 +158,99 @@ function onRowContextMenu(event) {
                 </template>
             </Card>
 
-            <div class="page-toolbar">
-                <div class="page-toolbar__filters">
-                    <InputText v-model="localFilters.search" placeholder="Search by patient, treatment, or doctor" />
-                    <Select v-model="localFilters.branchId" :options="branches" optionLabel="name" optionValue="id" placeholder="Filter by branch" showClear />
-                    <Select v-model="localFilters.status" :options="['booked', 'confirmed', 'completed', 'cancelled', 'no_show']" placeholder="Filter by status" showClear />
-                    <DatePicker v-model="dateFrom" placeholder="From Date" dateFormat="yy-mm-dd" showIcon iconDisplay="input" />
-                    <DatePicker v-model="dateTo" placeholder="To Date" dateFormat="yy-mm-dd" showIcon iconDisplay="input" />
-                    <Button label="Generate" icon="pi pi-filter" @click="generate" />
-                    <Button v-if="dateFrom || dateTo" icon="pi pi-times" severity="secondary" outlined @click="resetDateFilter" v-tooltip="'Clear date filter'" />
-                </div>
-                <div class="page-toolbar__actions">
-                    <Button label="Add Appointment" icon="pi pi-plus" @click="openCreateModal" />
-                </div>
+            <div class="card !mb-0 !border-0 !border-slate-100 !pb-0 shadow-sm">
+                <Toolbar class="mb-4 !rounded-xl">
+                    <template #start>
+                        <div class="flex items-center gap-3">
+                            <div class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-primary text-white shadow-lg shadow-blue-900/20 ring-1 ring-blue-400/30">
+                                <i class="pi pi-calendar text-lg" />
+                            </div>
+                            <div>
+                                <h1 class="text-xl font-bold tracking-tight text-slate-800 dark:text-white">
+                                    {{ title }}
+                                </h1>
+                                <p class="text-xs text-slate-500 dark:text-slate-400">
+                                    {{ desc }}
+                                </p>
+                            </div>
+                        </div>
+                    </template>
+
+                    <template #end>
+                        <Button
+                            icon="pi pi-plus"
+                            class="mr-2"
+                            v-tooltip.bottom="{ value: 'Add Appointment' }"
+                            aria-label="Add appointment"
+                            @click="openCreateModal"
+                        />
+
+                        <ColumnArrange
+                            :moduleNm="moduleNm"
+                            :allColumns="allColumns"
+                            :tableRef="aug_data_table"
+                        />
+                    </template>
+                </Toolbar>
+
+                <DataTable
+                    ref="aug_data_table"
+                    :allColumns="allColumns"
+                    :moduleNm="moduleNm"
+                    :route_name="routeName + '.index'"
+                    @row-action="onRowAction"
+                    @data-update="syncStatusDrafts"
+                >
+                    <template #body-doctor_profile-user-name="{ data }">
+                        {{ data.doctor_profile?.user?.name || 'Auto assigned later' }}
+                    </template>
+
+                    <template #body-branch_id="{ data }">
+                        {{ data.branch?.name || '-' }}
+                    </template>
+
+                    <template #body-status="{ data }">
+                        <div class="flex items-center gap-2">
+                            <Select
+                                v-model="statusDrafts[data.id]"
+                                :options="statusOptions"
+                                class="min-w-[10rem]"
+                            />
+                            <Button icon="pi pi-check" text rounded @click="updateStatus(data.id)" />
+                        </div>
+                    </template>
+
+                    <template #body-paid_amount="{ data }">
+                        <Tag :value="`Rs. ${Number(data.paid_amount).toLocaleString()}`" severity="success" rounded />
+                    </template>
+                </DataTable>
             </div>
-
-            <!-- Context Menu -->
-            <ContextMenu ref="ctxMenu" :model="ctxMenuItems" />
-
-            <Card class="glass-panel rounded-[28px] border-none shadow-none">
-                <template #title>
-                    <div class="text-sm font-medium text-slate-500">Appointment List</div>
-                </template>
-                <template #content>
-                    <DataTable :value="filteredAppointments" stripedRows responsiveLayout="scroll" contextMenu @row-contextmenu="onRowContextMenu">
-                        <Column field="appointment_date" header="Date" />
-                        <Column field="patient.name" header="Patient" />
-                        <Column field="treatment_name" header="Treatment" />
-                        <Column header="Doctor">
-                            <template #body="{ data }">
-                                {{ data.doctor_profile?.user?.name || 'Auto assigned later' }}
-                            </template>
-                        </Column>
-                        <Column field="token_no" header="Token" />
-                        <Column header="Status">
-                            <template #body="{ data }">
-                                <div class="flex items-center gap-2">
-                                    <Select
-                                        v-model="statusDrafts[data.id]"
-                                        :options="['booked', 'confirmed', 'completed', 'cancelled', 'no_show']"
-                                        class="min-w-[10rem]"
-                                    />
-                                    <Button icon="pi pi-check" text rounded @click="updateStatus(data.id)" />
-                                </div>
-                            </template>
-                        </Column>
-                        <Column header="Paid">
-                            <template #body="{ data }">
-                                <Tag :value="`Rs. ${Number(data.paid_amount).toLocaleString()}`" severity="success" rounded />
-                            </template>
-                        </Column>
-                    </DataTable>
-                </template>
-            </Card>
         </div>
 
-        <Show 
-            v-model:visible="showDetailDialog" 
-            :appointment="detailAppointment" 
-            @edit="openEditModal" 
-            @delete="deleteAppointment" 
+        <ActionMenu
+            ref="action_menu_ref"
+            :formRef="form_ref"
+            :showRef="show_ref"
+            :routeName="routeName"
+            moduleName="Appointment"
+            :enabledActions="['show', 'edit', 'delete']"
+            @fetch-data="() => aug_data_table.value?.fetchData()"
         />
 
-        <Form 
-            ref="formRef"
+        <Form
+            ref="form_ref"
             :branches="branches"
             :patients="patients"
             :doctorOptions="doctorOptions"
             :specialties="specialties"
             :bookingDraft="bookingDraft"
+            :routeName="routeName"
+            @fetch-data="() => aug_data_table.value?.fetchData()"
+        />
+
+        <Show
+            ref="show_ref"
+            :routeName="routeName"
         />
     </AuthenticatedLayout>
 </template>
