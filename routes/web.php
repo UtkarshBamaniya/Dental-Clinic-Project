@@ -5,6 +5,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\BranchMasterController;
 use App\Http\Controllers\FinanceController;
 use App\Http\Controllers\InquiryController;
+use App\Http\Controllers\PatientAppointmentController;
 use App\Http\Controllers\PatientController;
 use App\Http\Controllers\RoleMasterController;
 use App\Http\Controllers\ProfileController;
@@ -41,6 +42,11 @@ Route::middleware(['auth'])->group(function () {
     // Appointments
     Route::resource('appointments', AppointmentController::class);
     Route::patch('/appointments/{appointment}/status', [AppointmentController::class, 'updateStatus'])->name('appointments.status');
+
+    // Patient Appointments (follow-up & resource – must register follow-up BEFORE the resource)
+    Route::post('patient-appointments/{patient}/follow-up', [PatientAppointmentController::class, 'storeFollowUp'])
+        ->name('patient-appointments.follow-up');
+    Route::resource('patient-appointments', PatientAppointmentController::class);
 
     // Staff
     Route::get('/staff', [StaffController::class, 'index'])->name('staff.index');

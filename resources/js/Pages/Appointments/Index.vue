@@ -22,6 +22,7 @@ const props = defineProps({
     patients: { type: Array, default: () => [] },
     doctors: { type: Array, default: () => [] },
     specialties: { type: Array, default: () => [] },
+    appointmentTypes: { type: Array, default: () => [] },
     bookingDraft: { type: Object, default: null },
     filters: { type: Object, default: () => ({}) },
 });
@@ -35,6 +36,12 @@ const statusDrafts = ref({});
 
 const statusOptions = ['booked', 'confirmed', 'completed', 'cancelled', 'no_show'];
 
+const paymentStatusSeverity = {
+    paid: 'success',
+    partial: 'warn',
+    unpaid: 'danger',
+};
+
 const doctorOptions = props.doctors.map((doctor) => ({
     id: doctor.id,
     label: `${doctor.user.name} | ${doctor.specialty}`,
@@ -46,14 +53,14 @@ const allColumns = ref([
         key: 1,
         field: 'appointment_date',
         header: 'Date',
-        filterType: 'date',
+        filterType: 'text',
         filterNm: 'appointment_date',
         sortable: true,
         visible: true,
     },
     {
         key: 2,
-        field: 'patient.name',
+        field: 'patient_name',
         header: 'Patient',
         filterType: 'text',
         filterNm: 'patient',
@@ -70,15 +77,23 @@ const allColumns = ref([
     },
     {
         key: 4,
-        field: 'doctor_profile.user.name',
+        field: 'appointment_type_name',
+        header: 'Type',
+        filterType: 'text',
+        filterNm: 'appointment_type_name',
+        visible: true,
+    },
+    {
+        key: 5,
+        field: 'doctor_name',
         header: 'Doctor',
         filterType: 'text',
         filterNm: 'doctor',
         visible: true,
     },
     {
-        key: 5,
-        field: 'branch_id',
+        key: 6,
+        field: 'branch_name',
         header: 'Branch',
         filterType: 'select',
         filterNm: 'branch_id',
@@ -86,15 +101,6 @@ const allColumns = ref([
         optionLabel: 'name',
         optionValue: 'id',
         visible: false,
-    },
-    {
-        key: 6,
-        field: 'token_no',
-        header: 'Token',
-        filterType: 'number',
-        filterNm: 'token_no',
-        sortable: true,
-        visible: true,
     },
     {
         key: 7,
@@ -111,6 +117,12 @@ const allColumns = ref([
         field: 'paid_amount',
         header: 'Paid',
         sortable: true,
+        visible: true,
+    },
+    {
+        key: 9,
+        field: 'payment_status',
+        header: 'Payment',
         visible: true,
     },
 ]);
@@ -201,12 +213,22 @@ const updateStatus = (id) => {
                     @row-action="onRowAction"
                     @data-update="syncStatusDrafts"
                 >
-                    <template #body-doctor_profile-user-name="{ data }">
-                        {{ data.doctor_profile?.user?.name || 'Auto assigned later' }}
+                    <template #body-doctor_name="{ data }">
+                        {{ data.doctor_name || 'Auto assigned later' }}
                     </template>
 
-                    <template #body-branch_id="{ data }">
-                        {{ data.branch?.name || '-' }}
+                    <template #body-branch_name="{ data }">
+                        {{ data.branch_name || '-' }}
+                    </template>
+
+                    <template #body-appointment_type_name="{ data }">
+                        <Tag
+                            v-if="data.appointment_type_name"
+                            :value="data.appointment_type_name"
+                            severity="info"
+                            rounded
+                        />
+                        <span v-else class="text-slate-400 text-xs">—</span>
                     </template>
 
                     <template #body-status="{ data }">
@@ -223,6 +245,14 @@ const updateStatus = (id) => {
                     <template #body-paid_amount="{ data }">
                         <Tag :value="`Rs. ${Number(data.paid_amount).toLocaleString()}`" severity="success" rounded />
                     </template>
+
+                    <template #body-payment_status="{ data }">
+                        <Tag
+                            :value="data.payment_status"
+                            :severity="paymentStatusSeverity[data.payment_status] ?? 'secondary'"
+                            rounded
+                        />
+                    </template>
                 </DataTable>
             </div>
         </div>
@@ -233,8 +263,9 @@ const updateStatus = (id) => {
             :showRef="show_ref"
             :routeName="routeName"
             moduleName="Appointment"
-            :enabledActions="['show', 'edit', 'delete']"
-            @fetch-data="() => aug_data_table.value?.fetchData()"
+            :enabledActions="['show', 'edit', 'delete', 'follow_up']"
+            @fetch-data="() => aug_data_table?.fetchData()"
+            @follow-up="(data) => form_ref?.openFollowUp(data)"
         />
 
         <Form
@@ -243,9 +274,10 @@ const updateStatus = (id) => {
             :patients="patients"
             :doctorOptions="doctorOptions"
             :specialties="specialties"
+            :appointmentTypes="appointmentTypes"
             :bookingDraft="bookingDraft"
             :routeName="routeName"
-            @fetch-data="() => aug_data_table.value?.fetchData()"
+            @fetch-data="() => aug_data_table?.fetchData()"
         />
 
         <Show

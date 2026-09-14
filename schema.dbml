@@ -1,0 +1,362 @@
+Table "appointment_billings" {
+  "id" bigint(20) [pk, not null, increment]
+  "appointment_id" bigint(20) [not null]
+  "estimated_amount" decimal(12,2) [not null, default: 0]
+  "paid_amount" decimal(12,2) [not null, default: 0]
+  "discount" decimal(12,2) [not null, default: 0]
+  "payment_status" varchar(255) [not null, default: "unpaid"]
+  "created_at" timestamp [default: NULL]
+  "updated_at" timestamp [default: NULL]
+
+Indexes {
+  appointment_id [name: "appointment_billings_appointment_id_foreign"]
+}
+}
+
+Table "appointment_types" {
+  "id" bigint(20) [pk, not null, increment]
+  "name" varchar(255) [not null]
+  "color" varchar(255) [default: NULL]
+  "duration_minutes" int(11) [not null, default: 30]
+  "created_at" timestamp [default: NULL]
+  "updated_at" timestamp [default: NULL]
+
+Indexes {
+  name [unique, name: "appointment_types_name_unique"]
+}
+}
+
+Table "appointments" {
+  "id" bigint(20) [pk, not null, increment]
+  "branch_id" tinyint(4) [not null, default: 0]
+  "patient_id" bigint(20) [not null]
+  "doctor_profile_id" bigint(20) [default: NULL]
+  "booked_by" bigint(20) [default: NULL]
+  "appointment_date" date [not null]
+  "start_time" time [not null]
+  "end_time" time [not null]
+  "specialty" varchar(255) [not null]
+  "treatment_name" varchar(255) [not null]
+  "status" varchar(255) [not null, default: "booked"]
+  "notes" text [default: NULL]
+  "created_at" timestamp [default: NULL]
+  "updated_at" timestamp [default: NULL]
+  "deleted_at" timestamp [default: NULL]
+  "appointment_type_id" bigint(20) [default: NULL]
+  "parent_appointment_id" bigint(20) [default: NULL]
+
+Indexes {
+  patient_id [name: "appointments_patient_id_foreign"]
+  doctor_profile_id [name: "appointments_doctor_profile_id_foreign"]
+  booked_by [name: "appointments_booked_by_foreign"]
+  appointment_type_id [name: "appointments_appointment_type_id_foreign"]
+  parent_appointment_id [name: "appointments_parent_appointment_id_foreign"]
+}
+}
+
+Table "branches" {
+  "id" bigint(20) [pk, not null, increment]
+  "name" varchar(255) [not null]
+  "code" varchar(255) [not null]
+  "phone" varchar(255) [default: NULL]
+  "email" varchar(255) [default: NULL]
+  "city" varchar(255) [default: NULL]
+  "address" text [default: NULL]
+  "manager_name" varchar(255) [default: NULL]
+  "is_main" tinyint(4) [not null, default: 0]
+  "created_at" timestamp [default: NULL]
+  "updated_at" timestamp [default: NULL]
+  "deleted_at" timestamp [default: NULL]
+
+Indexes {
+  code [unique, name: "branches_code_unique"]
+}
+}
+
+Table "cache" {
+  "key" varchar(255) [pk, not null]
+  "value" mediumtext [not null]
+  "expiration" int(11) [not null]
+
+Indexes {
+  expiration [name: "cache_expiration_index"]
+}
+}
+
+Table "cache_locks" {
+  "key" varchar(255) [pk, not null]
+  "owner" varchar(255) [not null]
+  "expiration" int(11) [not null]
+
+Indexes {
+  expiration [name: "cache_locks_expiration_index"]
+}
+}
+
+Table "doctor_profiles" {
+  "id" bigint(20) [pk, not null, increment]
+  "user_id" int(11) [default: 0]
+  "branch_id" tinyint(4) [not null, default: 0]
+  "specialty" varchar(255) [not null]
+  "room_number" varchar(255) [default: NULL]
+  "consultation_fee" decimal(12,2) [not null, default: 0]
+  "theme_color" varchar(255) [not null, default: "#0f766e"]
+  "is_available" tinyint(1) [not null, default: 1]
+  "created_at" timestamp [default: NULL]
+  "updated_at" timestamp [default: NULL]
+}
+
+Table "doctor_schedules" {
+  "id" bigint(20) [pk, not null, increment]
+  "doctor_profile_id" bigint(20) [not null]
+  "day_of_week" tinyint(3) [not null]
+  "start_time" time [not null]
+  "end_time" time [not null]
+  "max_appointments" int(10) [not null, default: 12]
+  "created_at" timestamp [default: NULL]
+  "updated_at" timestamp [default: NULL]
+
+Indexes {
+  doctor_profile_id [name: "doctor_schedules_doctor_profile_id_foreign"]
+}
+}
+
+Table "expenses" {
+  "id" bigint(20) [pk, not null, increment]
+  "branch_id" tinyint(4) [not null, default: 0]
+  "category" varchar(255) [not null]
+  "title" varchar(255) [not null]
+  "vendor_name" varchar(255) [default: NULL]
+  "expense_date" date [not null]
+  "amount" decimal(12,2) [not null]
+  "paid_via" varchar(255) [not null, default: "bank"]
+  "notes" text [default: NULL]
+  "created_at" timestamp [default: NULL]
+  "updated_at" timestamp [default: NULL]
+  "deleted_at" timestamp [default: NULL]
+}
+
+Table "failed_jobs" {
+  "id" bigint(20) [pk, not null, increment]
+  "uuid" varchar(255) [not null]
+  "connection" text [not null]
+  "queue" text [not null]
+  "payload" longtext [not null]
+  "exception" longtext [not null]
+  "failed_at" timestamp [not null, default: `current_timestamp()`]
+
+Indexes {
+  uuid [unique, name: "failed_jobs_uuid_unique"]
+}
+}
+
+Table "inquiries" {
+  "id" bigint(20) [pk, not null, increment]
+  "branch_id" tinyint(4) [not null, default: 0]
+  "patient_id" bigint(20) [default: NULL]
+  "assigned_to" bigint(20) [default: NULL]
+  "name" varchar(255) [not null]
+  "phone" varchar(255) [not null]
+  "email" varchar(255) [default: NULL]
+  "source" varchar(255) [not null, default: "Walk-in"]
+  "treatment_interest" varchar(255) [not null]
+  "status" varchar(255) [not null, default: "new"]
+  "priority" varchar(255) [not null, default: "warm"]
+  "next_follow_up_at" timestamp [default: NULL]
+  "notes" text [default: NULL]
+  "created_at" timestamp [default: NULL]
+  "updated_at" timestamp [default: NULL]
+
+Indexes {
+  patient_id [name: "inquiries_patient_id_foreign"]
+  assigned_to [name: "inquiries_assigned_to_foreign"]
+}
+}
+
+Table "job_batches" {
+  "id" varchar(255) [pk, not null]
+  "name" varchar(255) [not null]
+  "total_jobs" int(11) [not null]
+  "pending_jobs" int(11) [not null]
+  "failed_jobs" int(11) [not null]
+  "failed_job_ids" longtext [not null]
+  "options" mediumtext [default: NULL]
+  "cancelled_at" int(11) [default: NULL]
+  "created_at" int(11) [not null]
+  "finished_at" int(11) [default: NULL]
+}
+
+Table "jobs" {
+  "id" bigint(20) [pk, not null, increment]
+  "queue" varchar(255) [not null]
+  "payload" longtext [not null]
+  "attempts" tinyint(3) [not null]
+  "reserved_at" int(10) [default: NULL]
+  "available_at" int(10) [not null]
+  "created_at" int(10) [not null]
+
+Indexes {
+  queue [name: "jobs_queue_index"]
+}
+}
+
+Table "journal_entries" {
+  "id" bigint(20) [pk, not null, increment]
+  "branch_id" tinyint(4) [not null, default: 0]
+  "entry_date" date [not null]
+  "account_head" varchar(255) [not null]
+  "reference_type" varchar(255) [not null]
+  "reference_id" bigint(20) [default: NULL]
+  "narration" varchar(255) [not null]
+  "debit" decimal(12,2) [not null, default: 0]
+  "credit" decimal(12,2) [not null, default: 0]
+  "created_at" timestamp [default: NULL]
+  "updated_at" timestamp [default: NULL]
+  "deleted_at" timestamp [default: NULL]
+}
+
+Table "migrations" {
+  "id" int(10) [pk, not null, increment]
+  "migration" varchar(255) [not null]
+  "batch" int(11) [not null]
+}
+
+Table "password_reset_tokens" {
+  "email" varchar(255) [pk, not null]
+  "token" varchar(255) [not null]
+  "created_at" timestamp [default: NULL]
+}
+
+Table "patients" {
+  "id" bigint(20) [pk, not null, increment]
+  "branch_id" tinyint(4) [not null, default: 0]
+  "patient_code" varchar(255) [not null]
+  "name" varchar(255) [not null]
+  "email" varchar(255) [default: NULL]
+  "phone" varchar(255) [not null]
+  "gender" varchar(20) [default: NULL]
+  "date_of_birth" date [default: NULL]
+  "blood_group" varchar(10) [default: NULL]
+  "address" text [default: NULL]
+  "allergies" text [default: NULL]
+  "notes" text [default: NULL]
+  "last_visit_at" timestamp [default: NULL]
+  "created_at" timestamp [default: NULL]
+  "updated_at" timestamp [default: NULL]
+
+Indexes {
+  patient_code [unique, name: "patients_patient_code_unique"]
+}
+}
+
+Table "payments" {
+  "id" bigint(20) [pk, not null, increment]
+  "branch_id" tinyint(4) [not null, default: 0]
+  "patient_id" bigint(20) [default: NULL]
+  "appointment_id" bigint(20) [default: NULL]
+  "invoice_number" varchar(255) [not null]
+  "payment_date" date [not null]
+  "amount" decimal(12,2) [not null]
+  "method" varchar(255) [not null]
+  "status" varchar(255) [not null, default: "captured"]
+  "razorpay_order_id" varchar(255) [default: NULL]
+  "razorpay_payment_id" varchar(255) [default: NULL]
+  "razorpay_reference" varchar(255) [default: NULL]
+  "notes" text [default: NULL]
+  "created_at" timestamp [default: NULL]
+  "updated_at" timestamp [default: NULL]
+  "deleted_at" timestamp [default: NULL]
+
+Indexes {
+  invoice_number [unique, name: "payments_invoice_number_unique"]
+  patient_id [name: "payments_patient_id_foreign"]
+  appointment_id [name: "payments_appointment_id_foreign"]
+}
+}
+
+Table "payroll_records" {
+  "id" bigint(20) [pk, not null, increment]
+  "branch_id" tinyint(4) [not null, default: 0]
+  "user_id" int(11) [not null, default: 0]
+  "salary_month" date [not null]
+  "gross_salary" decimal(12,2) [not null]
+  "bonus" decimal(12,2) [not null, default: 0]
+  "deductions" decimal(12,2) [not null, default: 0]
+  "net_salary" decimal(12,2) [not null]
+  "payment_status" varchar(255) [not null, default: "processed"]
+  "paid_on" date [default: NULL]
+  "created_at" timestamp [default: NULL]
+  "updated_at" timestamp [default: NULL]
+}
+
+Table "roles" {
+  "id" bigint(20) [pk, not null, increment]
+  "code" varchar(255) [not null]
+  "name" varchar(255) [not null]
+  "is_system" tinyint(1) [not null, default: 0]
+  "created_at" timestamp [default: NULL]
+  "updated_at" timestamp [default: NULL]
+  "deleted_at" timestamp [default: NULL]
+
+Indexes {
+  code [unique, name: "roles_code_unique"]
+}
+}
+
+Table "sessions" {
+  "id" varchar(255) [pk, not null]
+  "user_id" bigint(20) [default: NULL]
+  "ip_address" varchar(45) [default: NULL]
+  "user_agent" text [default: NULL]
+  "payload" longtext [not null]
+  "last_activity" int(11) [not null]
+
+Indexes {
+  user_id [name: "sessions_user_id_index"]
+  last_activity [name: "sessions_last_activity_index"]
+}
+}
+
+Table "users" {
+  "id" bigint(20) [pk, not null, increment]
+  "name" varchar(255) [not null]
+  "email" varchar(255) [not null]
+  "email_verified_at" timestamp [default: NULL]
+  "password" varchar(255) [not null]
+  "remember_token" varchar(100) [default: NULL]
+  "branch_id" tinyint(4) [not null, default: 0]
+  "phone" varchar(255) [default: NULL]
+  "role_id" int(11) [not null, default: 0]
+  "job_title" varchar(255) [default: NULL]
+  "status" tinyint(1) [not null, default: 1]
+  "monthly_salary" decimal(12,2) [not null, default: 0]
+  "created_at" timestamp [default: NULL]
+  "updated_at" timestamp [default: NULL]
+  "deleted_at" timestamp [default: NULL]
+
+Indexes {
+  email [unique, name: "users_email_unique"]
+}
+}
+
+Ref "appointment_billings_appointment_id_foreign":"appointments"."id" < "appointment_billings"."appointment_id" [delete: cascade]
+
+Ref "appointments_appointment_type_id_foreign":"appointment_types"."id" < "appointments"."appointment_type_id" [delete: set null]
+
+Ref "appointments_booked_by_foreign":"users"."id" < "appointments"."booked_by" [delete: set null]
+
+Ref "appointments_doctor_profile_id_foreign":"doctor_profiles"."id" < "appointments"."doctor_profile_id" [delete: set null]
+
+Ref "appointments_parent_appointment_id_foreign":"appointments"."id" < "appointments"."parent_appointment_id" [delete: set null]
+
+Ref "appointments_patient_id_foreign":"patients"."id" < "appointments"."patient_id" [delete: cascade]
+
+Ref "doctor_schedules_doctor_profile_id_foreign":"doctor_profiles"."id" < "doctor_schedules"."doctor_profile_id" [delete: cascade]
+
+Ref "inquiries_assigned_to_foreign":"users"."id" < "inquiries"."assigned_to" [delete: set null]
+
+Ref "inquiries_patient_id_foreign":"patients"."id" < "inquiries"."patient_id" [delete: set null]
+
+Ref "payments_appointment_id_foreign":"appointments"."id" < "payments"."appointment_id" [delete: set null]
+
+Ref "payments_patient_id_foreign":"patients"."id" < "payments"."patient_id" [delete: set null]

@@ -24,7 +24,7 @@ import Button from 'primevue/button';
 import Dialog from 'primevue/dialog';
 import ContextMenu from 'primevue/contextmenu';
 
-const emit = defineEmits(['fetch-data']);
+const emit = defineEmits(['fetch-data', 'follow-up']);
 
 const props = defineProps({
     formRef:        { type: Object, default: null },
@@ -57,6 +57,14 @@ const menuItems = computed(() => {
             label:   'Edit',
             icon:    'pi pi-pencil',
             command: () => props.formRef?.openEdit(currentRow.value?.id),
+        });
+    }
+
+    if (props.enabledActions.includes('follow_up')) {
+        items.push({
+            label:   'Add Follow Up',
+            icon:    'pi pi-calendar-plus',
+            command: () => emit('follow-up', currentRow.value),
         });
     }
 

@@ -1,0 +1,441 @@
+//////////////////////////////////////////////////////
+// SMILE CLINIC - DENTAL APPOINTMENT MANAGEMENT
+//////////////////////////////////////////////////////
+
+
+//////////////////////////////////////////////////////
+// 1. PATIENT
+//////////////////////////////////////////////////////
+
+Table dental_patients {
+  id bigint [pk, increment]
+
+  patient_code varchar(30) [not null, unique]
+
+  first_name varchar(100) [not null]
+  middle_name varchar(100)
+  last_name varchar(100)
+
+  gender varchar(20)
+  date_of_birth date
+
+  mobile varchar(20) [not null]
+  alternate_mobile varchar(20)
+  email varchar(150)
+
+  address text
+  city varchar(100)
+  state varchar(100)
+  pincode varchar(20)
+
+  occupation varchar(100)
+  referred_by varchar(150)
+
+  emergency_contact_name varchar(150)
+  emergency_contact_mobile varchar(20)
+  emergency_contact_relation varchar(50)
+
+  status varchar(20) [default: 'active']
+
+  created_at timestamp
+  updated_at timestamp
+  deleted_at timestamp
+}
+
+
+//////////////////////////////////////////////////////
+// 2. PATIENT MEDICAL HISTORY
+//////////////////////////////////////////////////////
+
+Table dental_patient_medical_histories {
+  id bigint [pk, increment]
+
+  patient_id bigint [not null, unique]
+
+  blood_group varchar(10)
+
+  diabetes boolean [default: false]
+  blood_pressure boolean [default: false]
+  heart_disease boolean [default: false]
+
+  allergy boolean [default: false]
+  allergy_details text
+
+  current_medicine text
+
+  previous_dental_treatment text
+
+  pregnancy_status varchar(30)
+
+  other_notes text
+
+  created_at timestamp
+  updated_at timestamp
+}
+
+
+//////////////////////////////////////////////////////
+// 3. DOCTORS
+//////////////////////////////////////////////////////
+
+Table dental_doctors {
+  id bigint [pk, increment]
+
+  doctor_code varchar(30) [not null, unique]
+
+  first_name varchar(100) [not null]
+  last_name varchar(100)
+
+  mobile varchar(20)
+  email varchar(150)
+
+  specialization varchar(150)
+
+  consultation_fee decimal(12,2) [default: 0]
+
+  status varchar(20) [default: 'active']
+
+  created_at timestamp
+  updated_at timestamp
+  deleted_at timestamp
+}
+
+
+//////////////////////////////////////////////////////
+// 4. DENTAL CHAIRS
+//////////////////////////////////////////////////////
+
+Table dental_chairs {
+  id bigint [pk, increment]
+
+  chair_name varchar(100) [not null]
+  chair_number varchar(30)
+
+  status varchar(20) [default: 'active']
+
+  created_at timestamp
+  updated_at timestamp
+}
+
+
+//////////////////////////////////////////////////////
+// 5. APPOINTMENT TYPES
+//////////////////////////////////////////////////////
+
+Table dental_appointment_types {
+  id bigint [pk, increment]
+
+  name varchar(100) [not null, unique]
+
+  description text
+
+  status varchar(20) [default: 'active']
+
+  created_at timestamp
+  updated_at timestamp
+}
+
+
+//////////////////////////////////////////////////////
+// 6. APPOINTMENTS
+//////////////////////////////////////////////////////
+
+Table dental_appointments {
+  id bigint [pk, increment]
+
+  appointment_no varchar(30) [not null, unique]
+
+  patient_id bigint [not null]
+
+  doctor_id bigint
+  chair_id bigint
+
+  appointment_type_id bigint
+
+  appointment_date date [not null]
+  appointment_time time [not null]
+
+  visit_type varchar(30) [not null]
+  // First Visit / Follow-up / Emergency
+
+  chief_complaint text
+
+  problem_area varchar(100)
+
+  tooth_no varchar(100)
+
+  priority varchar(30) [default: 'normal']
+
+  status varchar(30) [default: 'scheduled']
+
+  previous_appointment_id bigint
+
+  notes text
+
+  created_at timestamp
+  updated_at timestamp
+  deleted_at timestamp
+}
+
+
+//////////////////////////////////////////////////////
+// 7. TREATMENT MASTER
+//////////////////////////////////////////////////////
+
+Table dental_treatments {
+  id bigint [pk, increment]
+
+  treatment_code varchar(30) [not null, unique]
+
+  name varchar(150) [not null]
+
+  description text
+
+  default_price decimal(12,2) [default: 0]
+
+  duration_minutes int
+
+  status varchar(20) [default: 'active']
+
+  created_at timestamp
+  updated_at timestamp
+  deleted_at timestamp
+}
+
+
+//////////////////////////////////////////////////////
+// 8. APPOINTMENT TREATMENTS
+//////////////////////////////////////////////////////
+
+Table dental_appointment_treatments {
+  id bigint [pk, increment]
+
+  appointment_id bigint [not null]
+
+  treatment_id bigint [not null]
+
+  tooth_no varchar(50)
+
+  quantity decimal(10,2) [default: 1]
+
+  unit_price decimal(12,2) [default: 0]
+
+  total_amount decimal(12,2) [default: 0]
+
+  status varchar(30) [default: 'planned']
+
+  remarks text
+
+  created_at timestamp
+  updated_at timestamp
+}
+
+
+//////////////////////////////////////////////////////
+// 9. APPOINTMENT BILLING
+//////////////////////////////////////////////////////
+
+Table dental_appointment_billings {
+  id bigint [pk, increment]
+
+  appointment_id bigint [not null, unique]
+
+  consultation_fee decimal(12,2) [default: 0]
+
+  treatment_amount decimal(12,2) [default: 0]
+
+  discount decimal(12,2) [default: 0]
+
+  grand_total decimal(12,2) [default: 0]
+
+  paid_amount decimal(12,2) [default: 0]
+
+  balance_amount decimal(12,2) [default: 0]
+
+  payment_status varchar(30) [default: 'unpaid']
+
+  remarks text
+
+  created_at timestamp
+  updated_at timestamp
+}
+
+
+//////////////////////////////////////////////////////
+// 10. PAYMENT TRANSACTIONS
+//////////////////////////////////////////////////////
+
+Table dental_payment_transactions {
+  id bigint [pk, increment]
+
+  appointment_id bigint [not null]
+
+  billing_id bigint [not null]
+
+  payment_date date [not null]
+
+  amount decimal(12,2) [not null]
+
+  payment_mode varchar(30) [not null]
+  // Cash / UPI / Card / Bank Transfer
+
+  transaction_reference varchar(150)
+
+  remarks text
+
+  created_at timestamp
+  updated_at timestamp
+}
+
+
+//////////////////////////////////////////////////////
+// 11. TOOTH MASTER
+//////////////////////////////////////////////////////
+
+Table dental_teeth {
+  id bigint [pk, increment]
+
+  tooth_no varchar(10) [not null, unique]
+
+  tooth_name varchar(100)
+
+  tooth_type varchar(50)
+  // Incisor / Canine / Premolar / Molar
+
+  quadrant varchar(50)
+
+  created_at timestamp
+  updated_at timestamp
+}
+
+
+//////////////////////////////////////////////////////
+// 12. PATIENT TOOTH RECORD
+//////////////////////////////////////////////////////
+
+Table dental_patient_tooth_records {
+  id bigint [pk, increment]
+
+  patient_id bigint [not null]
+
+  tooth_id bigint [not null]
+
+  condition varchar(100)
+
+  status varchar(50)
+
+  notes text
+
+  recorded_date date
+
+  created_at timestamp
+  updated_at timestamp
+}
+
+
+//////////////////////////////////////////////////////
+// 13. APPOINTMENT NOTES
+//////////////////////////////////////////////////////
+
+Table dental_appointment_notes {
+  id bigint [pk, increment]
+
+  appointment_id bigint [not null]
+
+  note_type varchar(50)
+  // Clinical / Doctor / Reception / General
+
+  notes text [not null]
+
+  created_at timestamp
+  updated_at timestamp
+}
+
+
+//////////////////////////////////////////////////////
+// 14. PRESCRIPTION
+//////////////////////////////////////////////////////
+
+Table dental_prescriptions {
+  id bigint [pk, increment]
+
+  appointment_id bigint [not null]
+
+  medicine_name varchar(150) [not null]
+
+  dosage varchar(100)
+
+  frequency varchar(100)
+
+  duration varchar(100)
+
+  instructions text
+
+  created_at timestamp
+  updated_at timestamp
+}
+
+
+//////////////////////////////////////////////////////
+// RELATIONSHIPS
+//////////////////////////////////////////////////////
+
+
+// Patient → Medical History
+Ref: dental_patients.id - dental_patient_medical_histories.patient_id
+
+
+// Patient → Appointments
+Ref: dental_patients.id < dental_appointments.patient_id
+
+
+// Doctor → Appointments
+Ref: dental_doctors.id < dental_appointments.doctor_id
+
+
+// Chair → Appointments
+Ref: dental_chairs.id < dental_appointments.chair_id
+
+
+// Appointment Type → Appointments
+Ref: dental_appointment_types.id < dental_appointments.appointment_type_id
+
+
+// Previous Appointment → Current Appointment
+Ref: dental_appointments.id < dental_appointments.previous_appointment_id
+
+
+// Appointment → Treatments
+Ref: dental_appointments.id < dental_appointment_treatments.appointment_id
+
+
+// Treatment Master → Appointment Treatments
+Ref: dental_treatments.id < dental_appointment_treatments.treatment_id
+
+
+// Appointment → Billing
+Ref: dental_appointments.id - dental_appointment_billings.appointment_id
+
+
+// Appointment → Payments
+Ref: dental_appointments.id < dental_payment_transactions.appointment_id
+
+
+// Billing → Payments
+Ref: dental_appointment_billings.id < dental_payment_transactions.billing_id
+
+
+// Tooth Master → Patient Tooth Records
+Ref: dental_teeth.id < dental_patient_tooth_records.tooth_id
+
+
+// Patient → Patient Tooth Records
+Ref: dental_patients.id < dental_patient_tooth_records.patient_id
+
+
+// Appointment → Notes
+Ref: dental_appointments.id < dental_appointment_notes.appointment_id
+
+
+// Appointment → Prescriptions
+Ref: dental_appointments.id < dental_prescriptions.appointment_id

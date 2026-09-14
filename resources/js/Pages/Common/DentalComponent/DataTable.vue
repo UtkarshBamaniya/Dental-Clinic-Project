@@ -216,12 +216,12 @@ defineExpose({ fetchData, columns });
                 <p class="text-sm">No records found.</p>
             </div>
         </template>
-        <template #loading>
+        <!-- <template #loading>
             <div class="py-14 flex flex-col items-center text-slate-400">
                 <i class="pi pi-spin pi-spinner text-3xl mb-2" />
                 <p class="text-sm">Loading data…</p>
             </div>
-        </template>
+        </template> -->
 
         <!-- ── Dynamic columns ────────────────────────────────────── -->
         <template v-for="col in visibleColumns" :key="col.field">

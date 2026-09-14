@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\AppointmentRequest;
 use App\Models\Appointment;
+use App\Models\AppointmentBilling;
+use App\Models\AppointmentType;
 use App\Models\Branch;
 use App\Models\DoctorProfile;
 use App\Models\Inquiry;
@@ -19,32 +21,31 @@ class AppointmentController extends Controller
     public function __construct(
         protected AppointmentAssignmentService $assignmentService,
         protected AppointmentRepo $appointmentRepo,
-    )
-    {
+    ) {
     }
 
     public function index()
     {
-        $input = request()->all();
+        $input      = request()->all();
         $bookingDraft = null;
-        $inquiryId = request()->integer('inquiry');
-        $fromDate  = request('from_date');
-        $toDate    = request('to_date');
+        $inquiryId  = request()->integer('inquiry');
+        $fromDate   = request('from_date');
+        $toDate     = request('to_date');
 
         if ($inquiryId) {
             $inquiry = Inquiry::query()->with(['patient', 'branch'])->find($inquiryId);
 
             if ($inquiry) {
                 $bookingDraft = [
-                    'inquiry_id'   => $inquiry->id,
-                    'branch_id'    => $inquiry->branch_id,
-                    'patient_id'   => $inquiry->patient_id,
-                    'patient_name' => $inquiry->patient?->name ?? $inquiry->name,
-                    'phone'        => $inquiry->patient?->phone ?? $inquiry->phone,
-                    'email'        => $inquiry->patient?->email ?? $inquiry->email,
-                    'specialty'    => $inquiry->treatment_interest,
+                    'inquiry_id'     => $inquiry->id,
+                    'branch_id'      => $inquiry->branch_id,
+                    'patient_id'     => $inquiry->patient_id,
+                    'patient_name'   => $inquiry->patient?->name ?? $inquiry->name,
+                    'phone'          => $inquiry->patient?->phone ?? $inquiry->phone,
+                    'email'          => $inquiry->patient?->email ?? $inquiry->email,
+                    'specialty'      => $inquiry->treatment_interest,
                     'treatment_name' => $inquiry->treatment_interest,
-                    'notes'        => $inquiry->notes,
+                    'notes'          => $inquiry->notes,
                 ];
             }
         }
@@ -54,15 +55,16 @@ class AppointmentController extends Controller
         }
 
         return Inertia::render('Appointments/Index', [
-            'title'        => 'Appointments',
-            'desc'         => 'Manage appointment bookings and schedules',
-            'routeName'    => 'appointments',
-            'branches'     => Branch::query()->orderBy('name')->get(['id', 'name']),
-            'patients'     => Patient::query()->orderBy('name')->get(['id', 'name', 'phone']),
-            'doctors'      => DoctorProfile::query()->with('user')->orderBy('specialty')->get(),
-            'specialties'  => ['Orthodontics', 'Root Canal', 'Implants', 'Pediatric Dentistry', 'Cosmetic Dentistry', 'General Dentistry'],
-            'bookingDraft' => $bookingDraft,
-            'filters'      => [
+            'title'            => 'Appointments',
+            'desc'             => 'Manage appointment bookings and schedules',
+            'routeName'        => 'appointments',
+            'branches'         => Branch::query()->orderBy('name')->get(['id', 'name']),
+            'patients'         => Patient::query()->orderBy('name')->get(['id', 'name', 'phone']),
+            'doctors'          => DoctorProfile::query()->with('user')->orderBy('specialty')->get(),
+            'specialties'      => ['Orthodontics', 'Root Canal', 'Implants', 'Pediatric Dentistry', 'Cosmetic Dentistry', 'General Dentistry'],
+            'appointmentTypes' => AppointmentType::query()->orderBy('name')->get(['id', 'name', 'color', 'duration_minutes']),
+            'bookingDraft'     => $bookingDraft,
+            'filters'          => [
                 'from_date' => $fromDate,
                 'to_date'   => $toDate,
             ],
@@ -72,7 +74,7 @@ class AppointmentController extends Controller
     public function publicCreate(): Response
     {
         return Inertia::render('Public/BookAppointment', [
-            'branches' => Branch::query()->orderBy('name')->get(['id', 'name', 'city']),
+            'branches'    => Branch::query()->orderBy('name')->get(['id', 'name', 'city']),
             'specialties' => ['Orthodontics', 'Root Canal', 'Implants', 'Pediatric Dentistry', 'Cosmetic Dentistry', 'General Dentistry'],
         ]);
     }
@@ -91,67 +93,69 @@ class AppointmentController extends Controller
     public function publicStore()
     {
         $validated = request()->validate([
-            'branch_id' => ['required', 'exists:branches,id'],
-            'patient_name' => ['required', 'string', 'max:255'],
-            'phone' => ['required', 'string', 'max:20'],
-            'email' => ['nullable', 'email', 'max:255'],
+            'branch_id'        => ['required', 'exists:branches,id'],
+            'patient_name'     => ['required', 'string', 'max:255'],
+            'phone'            => ['required', 'string', 'max:20'],
+            'email'            => ['nullable', 'email', 'max:255'],
             'appointment_date' => ['required', 'date'],
-            'start_time' => ['required'],
-            'end_time' => ['required'],
-            'specialty' => ['required', 'string', 'max:100'],
-            'treatment_name' => ['required', 'string', 'max:255'],
-            'notes' => ['nullable', 'string'],
+            'start_time'       => ['required'],
+            'end_time'         => ['required'],
+            'specialty'        => ['required', 'string', 'max:100'],
+            'treatment_name'   => ['required', 'string', 'max:255'],
+            'notes'            => ['nullable', 'string'],
         ]);
 
         $patient = Patient::query()->create([
-            'branch_id' => $validated['branch_id'],
-            'patient_code' => 'PAT-'.Carbon::now()->format('ymd').'-'.str_pad((string) (Patient::count() + 1), 3, '0', STR_PAD_LEFT),
-            'name' => $validated['patient_name'],
-            'phone' => $validated['phone'],
-            'email' => $validated['email'] ?? null,
-            'gender' => 'Other',
-            'notes' => $validated['notes'] ?? null,
+            'branch_id'    => $validated['branch_id'],
+            'patient_code' => 'PAT-' . Carbon::now()->format('ymd') . '-' . str_pad((string) (Patient::count() + 1), 3, '0', STR_PAD_LEFT),
+            'name'         => $validated['patient_name'],
+            'phone'        => $validated['phone'],
+            'email'        => $validated['email'] ?? null,
+            'gender'       => 'Other',
+            'notes'        => $validated['notes'] ?? null,
         ]);
 
         $inquiry = Inquiry::query()->create([
-            'branch_id' => $validated['branch_id'],
-            'patient_id' => $patient->id,
-            'name' => $validated['patient_name'],
-            'phone' => $validated['phone'],
-            'email' => $validated['email'] ?? null,
-            'source' => 'Website',
+            'branch_id'          => $validated['branch_id'],
+            'patient_id'         => $patient->id,
+            'name'               => $validated['patient_name'],
+            'phone'              => $validated['phone'],
+            'email'              => $validated['email'] ?? null,
+            'source'             => 'Website',
             'treatment_interest' => $validated['treatment_name'],
-            'status' => 'converted',
-            'priority' => 'warm',
-            'notes' => $validated['notes'] ?? null,
+            'status'             => 'converted',
+            'priority'           => 'warm',
+            'notes'              => $validated['notes'] ?? null,
         ]);
 
         $doctor = $this->assignmentService->assign(
-            branchId: (int) $validated['branch_id'],
-            specialty: $validated['specialty'],
+            branchId:        (int) $validated['branch_id'],
+            specialty:       $validated['specialty'],
             appointmentDate: $validated['appointment_date'],
-            startTime: $validated['start_time'],
+            startTime:       $validated['start_time'],
         );
 
-        Appointment::query()->create([
-            'branch_id' => $validated['branch_id'],
-            'patient_id' => $patient->id,
+        $appointment = Appointment::query()->create([
+            'branch_id'         => $validated['branch_id'],
+            'patient_id'        => $patient->id,
             'doctor_profile_id' => $doctor?->id,
-            'booked_by' => null,
-            'appointment_date' => $validated['appointment_date'],
-            'start_time' => $validated['start_time'],
-            'end_time' => $validated['end_time'],
-            'specialty' => $validated['specialty'],
-            'treatment_name' => $validated['treatment_name'],
-            'status' => 'booked',
-            'visit_type' => 'consultation',
-            'token_no' => $this->assignmentService->nextToken(
-                branchId: (int) $validated['branch_id'],
-                appointmentDate: $validated['appointment_date'],
-            ),
+            'booked_by'         => null,
+            'appointment_date'  => $validated['appointment_date'],
+            'start_time'        => $validated['start_time'],
+            'end_time'          => $validated['end_time'],
+            'specialty'         => $validated['specialty'],
+            'treatment_name'    => $validated['treatment_name'],
+            'status'            => 'booked',
+            'notes'             => trim(($validated['notes'] ?? '') . "\nWebsite inquiry #{$inquiry->id}"),
+        ]);
+
+        // Create a zeroed billing record so the appointment always has one
+        AppointmentBilling::query()->create([
+            'appointment_id'   => $appointment->id,
             'estimated_amount' => 0,
-            'paid_amount' => 0,
-            'notes' => trim(($validated['notes'] ?? '')."\nWebsite inquiry #{$inquiry->id}"),
+            'paid_amount'      => 0,
+            'discount'         => 0,
+            'payment_status'   => 'unpaid',
         ]);
 
         return redirect()->route('public.booking')->with('success', 'Your appointment request has been submitted successfully.');

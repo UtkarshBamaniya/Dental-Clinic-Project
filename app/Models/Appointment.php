@@ -6,33 +6,31 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Appointment extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
         'branch_id',
         'patient_id',
         'doctor_profile_id',
         'booked_by',
+        'appointment_type_id',
+        'parent_appointment_id',
         'appointment_date',
         'start_time',
         'end_time',
         'specialty',
         'treatment_name',
         'status',
-        'visit_type',
-        'token_no',
-        'estimated_amount',
-        'paid_amount',
         'notes',
     ];
 
     protected $casts = [
-        'appointment_date' => 'date',
-        'estimated_amount' => 'decimal:2',
-        'paid_amount' => 'decimal:2',
+        //
     ];
 
     public function branch(): BelongsTo
@@ -53,6 +51,26 @@ class Appointment extends Model
     public function bookedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'booked_by');
+    }
+
+    public function appointmentType(): BelongsTo
+    {
+        return $this->belongsTo(AppointmentType::class);
+    }
+
+    public function billing(): HasOne
+    {
+        return $this->hasOne(AppointmentBilling::class);
+    }
+
+    public function parentAppointment(): BelongsTo
+    {
+        return $this->belongsTo(Appointment::class, 'parent_appointment_id');
+    }
+
+    public function followUps(): HasMany
+    {
+        return $this->hasMany(Appointment::class, 'parent_appointment_id');
     }
 
     public function payments(): HasMany
