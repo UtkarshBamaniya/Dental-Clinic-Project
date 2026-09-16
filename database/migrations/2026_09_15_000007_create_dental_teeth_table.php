@@ -11,11 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('appointment_types', function (Blueprint $table) {
+        Schema::create('dental_teeth', function (Blueprint $table) {
             $table->id();
-            $table->string('name')->unique();
-            $table->string('color')->nullable();
-            $table->integer('duration_minutes')->default(30);
+            $table->string('tooth_no', 10)->unique();
+            $table->string('tooth_name', 100)->nullable();
+            $table->string('tooth_type', 50)->nullable();
+            $table->string('quadrant', 50)->nullable();
             $table->timestamps();
         });
     }
@@ -25,6 +26,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('appointment_types');
+        Schema::dropIfExists('dental_teeth');
     }
 };

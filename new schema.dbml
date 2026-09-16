@@ -31,10 +31,6 @@ Table dental_patients {
   occupation varchar(100)
   referred_by varchar(150)
 
-  emergency_contact_name varchar(150)
-  emergency_contact_mobile varchar(20)
-  emergency_contact_relation varchar(50)
-
   status varchar(20) [default: 'active']
 
   created_at timestamp
@@ -54,18 +50,9 @@ Table dental_patient_medical_histories {
 
   blood_group varchar(10)
 
-  diabetes boolean [default: false]
-  blood_pressure boolean [default: false]
-  heart_disease boolean [default: false]
-
-  allergy boolean [default: false]
-  allergy_details text
-
   current_medicine text
 
   previous_dental_treatment text
-
-  pregnancy_status varchar(30)
 
   other_notes text
 
