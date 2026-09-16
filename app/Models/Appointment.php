@@ -2,79 +2,95 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Appointment extends Model
 {
-    use HasFactory, SoftDeletes;
+    use SoftDeletes;
+
+    protected $table = 'dental_appointments';
 
     protected $fillable = [
-        'branch_id',
+        'appointment_no',
         'patient_id',
-        'doctor_profile_id',
-        'booked_by',
+        'doctor_id',
+        'chair_id',
         'appointment_type_id',
-        'parent_appointment_id',
         'appointment_date',
-        'start_time',
-        'end_time',
-        'specialty',
-        'treatment_name',
+        'appointment_time',
+        'visit_type',
+        'chief_complaint',
+        'problem_area',
+        'tooth_no',
+        'priority',
         'status',
+        'previous_appointment_id',
         'notes',
     ];
 
     protected $casts = [
-        //
+        'appointment_date' => 'date',
+        'appointment_time' => 'datetime:H:i:s',
     ];
 
-    public function branch(): BelongsTo
+    public function patient()
     {
-        return $this->belongsTo(Branch::class);
+        return $this->belongsTo(Patient::class, 'patient_id');
     }
 
-    public function patient(): BelongsTo
+    public function doctor()
     {
-        return $this->belongsTo(Patient::class);
+        return $this->belongsTo(Doctor::class, 'doctor_id');
     }
 
-    public function doctorProfile(): BelongsTo
+    public function chair()
     {
-        return $this->belongsTo(DoctorProfile::class);
+        return $this->belongsTo(Chair::class, 'chair_id');
     }
 
-    public function bookedBy(): BelongsTo
+    public function appointmentType()
     {
-        return $this->belongsTo(User::class, 'booked_by');
+        return $this->belongsTo(AppointmentType::class, 'appointment_type_id');
     }
 
-    public function appointmentType(): BelongsTo
+    public function previousAppointment()
     {
-        return $this->belongsTo(AppointmentType::class);
+        return $this->belongsTo(Appointment::class, 'previous_appointment_id');
     }
 
-    public function billing(): HasOne
+    public function followUpAppointments()
+    {
+        return $this->hasMany(Appointment::class, 'previous_appointment_id');
+    }
+
+    public function examination()
+    {
+        return $this->hasOne(AppointmentExamination::class);
+    }
+
+    public function treatments()
+    {
+        return $this->hasMany(AppointmentTreatment::class);
+    }
+
+    public function billing()
     {
         return $this->hasOne(AppointmentBilling::class);
     }
 
-    public function parentAppointment(): BelongsTo
+    public function paymentTransactions()
     {
-        return $this->belongsTo(Appointment::class, 'parent_appointment_id');
+        return $this->hasMany(PaymentTransaction::class);
     }
 
-    public function followUps(): HasMany
+    public function notes()
     {
-        return $this->hasMany(Appointment::class, 'parent_appointment_id');
+        return $this->hasMany(AppointmentNote::class);
     }
 
-    public function payments(): HasMany
+    public function prescriptions()
     {
-        return $this->hasMany(Payment::class);
+        return $this->hasMany(Prescription::class);
     }
 }

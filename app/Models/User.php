@@ -4,6 +4,7 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Models\Branch;
+use App\Models\Doctor;
 use App\Models\DoctorProfile;
 use App\Models\PayrollRecord;
 use App\Models\Role;
@@ -66,6 +67,11 @@ class User extends Authenticatable
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class)->withTrashed();
+    }
+
+    public function doctor(): HasOne
+    {
+        return $this->hasOne(Doctor::class);
     }
 
     public function doctorProfile(): HasOne

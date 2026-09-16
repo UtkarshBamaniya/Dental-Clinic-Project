@@ -1,1 +1,17 @@
 *.sqlite*
+
+tasks
+
+1. Database migrations         
+2. Models + relationships          
+3. Master data / Seeders            
+4. Appointment backend structure
+5. Patient search + create
+6. New Appointment
+7. Appointment listing
+8. Appointment detail
+9. Follow-up / reschedule / cancel
+10. Billing + payments
+11. Examination + teeth
+12. Prescriptions
+13. Reports/dashboard

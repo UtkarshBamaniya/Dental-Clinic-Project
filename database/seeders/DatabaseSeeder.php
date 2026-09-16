@@ -41,29 +41,8 @@ class DatabaseSeeder extends Seeder
             ];
         });
 
-        $mainBranch = Branch::query()->create([
-            'name' => 'SmileWorks Dental - Vadodara',
-            'code' => 'VA01',
-            'phone' => '+91 98765 00001',
-            'email' => 'vadodara@smileworks.test',
-            'city' => 'Vadodara',
-            'address' => 'Alkapuri, Vadodara',
-            'manager_name' => 'Dr. Nilesh Patel',
-            'is_main' => 1,
-        ]);
-
-        $secondBranch = Branch::query()->create([
-            'name' => 'SmileWorks Dental - Surat',
-            'code' => 'SRT01',
-            'phone' => '+91 98765 00002',
-            'email' => 'surat@smileworks.test',
-            'city' => 'Surat',
-            'address' => 'Vesu Main Road, Surat',
-            'manager_name' => 'Dr. Priya Mehta',
-        ]);
-
         $admin = User::query()->create([
-            'branch_id' => $mainBranch->id,
+            'branch_id' => 0,
             'name' => 'Clinic Super Admin',
             'email' => 'admin@smileworks.test',
             'phone' => '9876500000',
@@ -76,7 +55,7 @@ class DatabaseSeeder extends Seeder
         ]);
 
         $reception = User::query()->create([
-            'branch_id' => $mainBranch->id,
+            'branch_id' => 0,
             'name' => 'Nisha Reception',
             'email' => 'reception@smileworks.test',
             'phone' => '9876500001',
@@ -89,7 +68,7 @@ class DatabaseSeeder extends Seeder
         ]);
 
         $accountant = User::query()->create([
-            'branch_id' => $secondBranch->id,
+            'branch_id' => 0,
             'name' => 'Rakesh Finance',
             'email' => 'accounts@smileworks.test',
             'phone' => '9876500002',
@@ -102,7 +81,7 @@ class DatabaseSeeder extends Seeder
         ]);
 
         $doctorOne = User::query()->create([
-            'branch_id' => $mainBranch->id,
+            'branch_id' => 0,
             'name' => 'Dr. Mehul Shah',
             'email' => 'mehul@smileworks.test',
             'phone' => '9876500003',
@@ -115,7 +94,7 @@ class DatabaseSeeder extends Seeder
         ]);
 
         $doctorTwo = User::query()->create([
-            'branch_id' => $secondBranch->id,
+            'branch_id' => 0,
             'name' => 'Dr. Priya Mehta',
             'email' => 'priya@smileworks.test',
             'phone' => '9876500004',
@@ -129,7 +108,7 @@ class DatabaseSeeder extends Seeder
 
         $doctorProfileOne = DoctorProfile::query()->create([
             'user_id' => $doctorOne->id,
-            'branch_id' => $mainBranch->id,
+            'branch_id' => 0,
             'specialty' => 'Implants',
             'room_number' => 'R-02',
             'consultation_fee' => 700,
@@ -139,7 +118,7 @@ class DatabaseSeeder extends Seeder
 
         $doctorProfileTwo = DoctorProfile::query()->create([
             'user_id' => $doctorTwo->id,
-            'branch_id' => $secondBranch->id,
+            'branch_id' => 0,
             'specialty' => 'Orthodontics',
             'room_number' => 'R-04',
             'consultation_fee' => 650,
@@ -166,7 +145,7 @@ class DatabaseSeeder extends Seeder
         }
 
         $patientOne = Patient::query()->create([
-            'branch_id' => $mainBranch->id,
+            'branch_id' => 0,
             'patient_code' => 'PAT-260717-001',
             'name' => 'Aarav Patel',
             'email' => 'aarav@example.com',
@@ -181,7 +160,7 @@ class DatabaseSeeder extends Seeder
         ]);
 
         $patientTwo = Patient::query()->create([
-            'branch_id' => $secondBranch->id,
+            'branch_id' => 0,
             'patient_code' => 'PAT-260717-002',
             'name' => 'Diya Sharma',
             'email' => 'diya@example.com',
@@ -196,7 +175,7 @@ class DatabaseSeeder extends Seeder
         ]);
 
         Inquiry::query()->create([
-            'branch_id' => $mainBranch->id,
+            'branch_id' => 0,
             'assigned_to' => $reception->id,
             'name' => 'Rohan Jain',
             'phone' => '9999900003',
@@ -210,7 +189,7 @@ class DatabaseSeeder extends Seeder
         ]);
 
         $appointmentOne = Appointment::query()->create([
-            'branch_id' => $mainBranch->id,
+            'branch_id' => 0,
             'patient_id' => $patientOne->id,
             'doctor_profile_id' => $doctorProfileOne->id,
             'booked_by' => $admin->id,
@@ -228,7 +207,7 @@ class DatabaseSeeder extends Seeder
         ]);
 
         $appointmentTwo = Appointment::query()->create([
-            'branch_id' => $secondBranch->id,
+            'branch_id' => 0,
             'patient_id' => $patientTwo->id,
             'doctor_profile_id' => $doctorProfileTwo->id,
             'booked_by' => $reception->id,
@@ -246,7 +225,7 @@ class DatabaseSeeder extends Seeder
         ]);
 
         Payment::query()->create([
-            'branch_id' => $mainBranch->id,
+            'branch_id' => 0,
             'patient_id' => $patientOne->id,
             'appointment_id' => $appointmentOne->id,
             'invoice_number' => 'INV-00001',
@@ -261,7 +240,7 @@ class DatabaseSeeder extends Seeder
         ]);
 
         Payment::query()->create([
-            'branch_id' => $secondBranch->id,
+            'branch_id' => 0,
             'patient_id' => $patientTwo->id,
             'appointment_id' => $appointmentTwo->id,
             'invoice_number' => 'INV-00002',
@@ -273,7 +252,7 @@ class DatabaseSeeder extends Seeder
         ]);
 
         Expense::query()->create([
-            'branch_id' => $mainBranch->id,
+            'branch_id' => 0,
             'category' => 'Dental Supplies',
             'title' => 'Implant Kit Refill',
             'vendor_name' => 'OralCare Supply Co.',
@@ -284,7 +263,7 @@ class DatabaseSeeder extends Seeder
         ]);
 
         PayrollRecord::query()->create([
-            'branch_id' => $mainBranch->id,
+            'branch_id' => 0,
             'user_id' => $doctorOne->id,
             'salary_month' => now()->startOfMonth()->toDateString(),
             'gross_salary' => 125000,
@@ -293,6 +272,10 @@ class DatabaseSeeder extends Seeder
             'net_salary' => 127500,
             'payment_status' => 'processed',
             'paid_on' => now()->toDateString(),
+        ]);
+
+        $this->call([
+            DentalMasterDataSeeder::class,
         ]);
     }
 }

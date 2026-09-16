@@ -2,24 +2,40 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class AppointmentBilling extends Model
 {
-    use HasFactory;
+    protected $table = 'dental_appointment_billings';
 
     protected $fillable = [
         'appointment_id',
-        'estimated_amount',
-        'paid_amount',
+        'consultation_fee',
+        'treatment_amount',
         'discount',
+        'grand_total',
+        'paid_amount',
+        'balance_amount',
         'payment_status',
+        'remarks',
     ];
 
-    public function appointment(): BelongsTo
+    protected $casts = [
+        'consultation_fee' => 'decimal:2',
+        'treatment_amount' => 'decimal:2',
+        'discount' => 'decimal:2',
+        'grand_total' => 'decimal:2',
+        'paid_amount' => 'decimal:2',
+        'balance_amount' => 'decimal:2',
+    ];
+
+    public function appointment()
     {
-        return $this->belongsTo(Appointment::class);
+        return $this->belongsTo(Appointment::class, 'appointment_id');
+    }
+
+    public function paymentTransactions()
+    {
+        return $this->hasMany(PaymentTransaction::class, 'billing_id');
     }
 }

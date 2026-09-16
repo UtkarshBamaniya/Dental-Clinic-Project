@@ -4,13 +4,13 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class AppointmentType extends Model
+class Chair extends Model
 {
-    protected $table = 'dental_appointment_types';
+    protected $table = 'dental_chairs';
 
     protected $fillable = [
-        'name',
-        'description',
+        'chair_name',
+        'chair_number',
         'status',
     ];
 

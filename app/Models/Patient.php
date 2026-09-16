@@ -2,42 +2,50 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Patient extends Model
 {
-    use HasFactory;
+    use SoftDeletes;
+
+    protected $table = 'dental_patients';
 
     protected $fillable = [
-        'branch_id',
         'patient_code',
-        'name',
-        'email',
-        'phone',
+        'first_name',
+        'middle_name',
+        'last_name',
         'gender',
         'date_of_birth',
-        'blood_group',
+        'mobile',
+        'alternate_mobile',
+        'email',
         'address',
-        'allergies',
-        'notes',
-        'last_visit_at',
+        'city',
+        'state',
+        'pincode',
+        'occupation',
+        'referred_by',
+        'status',
     ];
 
     protected $casts = [
         'date_of_birth' => 'date',
-        'last_visit_at' => 'datetime',
     ];
 
-    public function branch(): BelongsTo
+    public function medicalHistory()
     {
-        return $this->belongsTo(Branch::class);
+        return $this->hasOne(PatientMedicalHistory::class);
     }
 
-    public function appointments(): HasMany
+    public function appointments()
     {
         return $this->hasMany(Appointment::class);
+    }
+
+    public function toothRecords()
+    {
+        return $this->hasMany(PatientToothRecord::class);
     }
 }
