@@ -6,6 +6,9 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * Inquiry model. branch_id column retained but no FK relationship (branches table removed).
+ */
 class Inquiry extends Model
 {
     use HasFactory;
@@ -29,11 +32,6 @@ class Inquiry extends Model
         'next_follow_up_at' => 'datetime',
     ];
 
-    public function branch(): BelongsTo
-    {
-        return $this->belongsTo(Branch::class)->withTrashed();
-    }
-
     public function patient(): BelongsTo
     {
         return $this->belongsTo(Patient::class);
@@ -44,3 +42,4 @@ class Inquiry extends Model
         return $this->belongsTo(User::class, 'assigned_to')->withTrashed();
     }
 }
+

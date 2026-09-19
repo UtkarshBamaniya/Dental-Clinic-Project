@@ -39,9 +39,11 @@ Route::middleware(['auth'])->group(function () {
     // Patients
     Route::resource('patients', PatientController::class);
 
-    // Appointments
-    Route::resource('appointments', AppointmentController::class);
-    Route::patch('/appointments/{appointment}/status', [AppointmentController::class, 'updateStatus'])->name('appointments.status');
+    // Appointments (Appointment Master — dental_* architecture)
+    Route::get('/appointments', [AppointmentController::class, 'index'])->name('appointments.index');
+    Route::post('/appointments', [AppointmentController::class, 'store'])->name('appointments.store');
+    Route::get('/appointments/{appointment}', [AppointmentController::class, 'show'])->name('appointments.show');
+    Route::put('/appointments/{appointment}', [AppointmentController::class, 'update'])->name('appointments.update');
 
     // Patient Appointments (follow-up & resource – must register follow-up BEFORE the resource)
     Route::post('patient-appointments/{patient}/follow-up', [PatientAppointmentController::class, 'storeFollowUp'])

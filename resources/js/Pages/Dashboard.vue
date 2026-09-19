@@ -111,21 +111,21 @@ const statusChartData = computed(() => ({
                         <div class="grid gap-4">
                             <div class="rounded-[24px] bg-white p-4">
                                 <div class="text-sm text-slate-500">Collections</div>
-                                <div class="mt-2 text-2xl font-semibold text-slate-900">Rs. {{ metrics.finance.collections.toLocaleString() }}</div>
+                                <!-- <div class="mt-2 text-2xl font-semibold text-slate-900">Rs. {{ metrics.finance.collections.toLocaleString() }}</div> -->
                             </div>
                             <div class="rounded-[24px] bg-white p-4">
                                 <div class="text-sm text-slate-500">Expenses</div>
-                                <div class="mt-2 text-2xl font-semibold text-slate-900">Rs. {{ metrics.finance.expenses.toLocaleString() }}</div>
+                                <!-- <div class="mt-2 text-2xl font-semibold text-slate-900">Rs. {{ metrics.finance.expenses.toLocaleString() }}</div> -->
                             </div>
                             <div class="rounded-[24px] bg-white p-4">
                                 <div class="text-sm text-slate-500">Payroll</div>
-                                <div class="mt-2 text-2xl font-semibold text-slate-900">Rs. {{ metrics.finance.payroll.toLocaleString() }}</div>
+                                <!-- <div class="mt-2 text-2xl font-semibold text-slate-900">Rs. {{ metrics.finance.payroll.toLocaleString() }}</div> -->
                             </div>
                             <div class="rounded-[24px] bg-slate-900 p-4 text-white">
                                 <div class="text-sm text-slate-300">Estimated operating surplus</div>
-                                <div class="mt-2 text-2xl font-semibold">
+                                <!-- <div class="mt-2 text-2xl font-semibold">
                                     Rs. {{ metrics.finance.profit.toLocaleString() }}
-                                </div>
+                                </div> -->
                             </div>
                         </div>
                     </template>

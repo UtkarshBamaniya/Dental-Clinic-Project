@@ -101,8 +101,8 @@ import Card from 'primevue/card';
                             <div class="text-sm uppercase tracking-[0.32em] text-slate-400">Demo access</div>
                             <div class="mt-5 rounded-[24px] bg-slate-900 p-5 text-white">
                                 <div class="text-sm text-slate-300">Super admin</div>
-                                <div class="mt-2 font-semibold">admin@smileworks.test</div>
-                                <div class="text-sm text-slate-300">password</div>
+                                <div class="mt-2 font-semibold">admin@smileclinic.com</div>
+                                <div class="text-sm text-slate-300">password123</div>
                             </div>
                         </template>
                     </Card>

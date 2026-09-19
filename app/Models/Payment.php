@@ -6,6 +6,9 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * Payment model. branch_id column retained but no FK relationship (branches table removed).
+ */
 class Payment extends Model
 {
     use HasFactory;
@@ -27,13 +30,8 @@ class Payment extends Model
 
     protected $casts = [
         'payment_date' => 'date',
-        'amount' => 'decimal:2',
+        'amount'       => 'decimal:2',
     ];
-
-    public function branch(): BelongsTo
-    {
-        return $this->belongsTo(Branch::class)->withTrashed();
-    }
 
     public function patient(): BelongsTo
     {
@@ -45,3 +43,4 @@ class Payment extends Model
         return $this->belongsTo(Appointment::class);
     }
 }
+

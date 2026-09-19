@@ -2,8 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Branch;
-use App\Models\DoctorProfile;
+use App\Models\Doctor;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
@@ -16,9 +15,8 @@ class StaffController extends Controller
     public function index(): Response
     {
         return Inertia::render('Masters/Users/Index', [
-            'users' => User::query()->with(['branch', 'roleRecord', 'doctorProfile'])->orderBy('name')->get(),
-            'branches' => Branch::query()->orderBy('name')->get(['id', 'name']),
-            'roles' => Role::query()->orderBy('name')->get(['id', 'code', 'name', 'is_system']),
+            'users'       => User::query()->with(['roleRecord', 'doctor'])->orderBy('name')->get(),
+            'roles'       => Role::query()->orderBy('name')->get(['id', 'code', 'name', 'is_system']),
             'specialties' => ['Orthodontics', 'Root Canal', 'Implants', 'Pediatric Dentistry', 'Cosmetic Dentistry', 'General Dentistry'],
         ]);
     }
@@ -26,23 +24,23 @@ class StaffController extends Controller
     public function store(): RedirectResponse
     {
         $validated = request()->validate([
-            'branch_id' => ['required', 'exists:branches,id'],
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255', 'unique:users,email'],
-            'phone' => ['nullable', 'string', 'max:20'],
-            'role_id' => ['required', 'exists:roles,id'],
-            'job_title' => ['nullable', 'string', 'max:100'],
+            'branch_id'      => ['nullable', 'integer'],
+            'name'           => ['required', 'string', 'max:255'],
+            'email'          => ['required', 'email', 'max:255', 'unique:users,email'],
+            'phone'          => ['nullable', 'string', 'max:20'],
+            'role_id'        => ['required', 'exists:roles,id'],
+            'job_title'      => ['nullable', 'string', 'max:100'],
             'monthly_salary' => ['nullable', 'numeric'],
-            'specialty' => ['nullable', 'string', 'max:100'],
+            'specialty'      => ['nullable', 'string', 'max:100'],
         ]);
 
         $user = User::query()->create([
             ...$validated,
             'password' => 'password',
-            'status' => true,
+            'status'   => true,
         ]);
 
-        $this->syncDoctorProfile($user, $validated['specialty'] ?? null);
+        $this->syncDoctor($user, $validated['specialty'] ?? null);
 
         return redirect()->route('masters.users.index')->with('success', 'Staff member created with default password: password');
     }
@@ -50,21 +48,21 @@ class StaffController extends Controller
     public function update(User $user): RedirectResponse
     {
         $validated = request()->validate([
-            'branch_id' => ['required', 'exists:branches,id'],
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
-            'phone' => ['nullable', 'string', 'max:20'],
-            'role_id' => ['required', 'exists:roles,id'],
-            'job_title' => ['nullable', 'string', 'max:100'],
+            'branch_id'      => ['nullable', 'integer'],
+            'name'           => ['required', 'string', 'max:255'],
+            'email'          => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
+            'phone'          => ['nullable', 'string', 'max:20'],
+            'role_id'        => ['required', 'exists:roles,id'],
+            'job_title'      => ['nullable', 'string', 'max:100'],
             'monthly_salary' => ['nullable', 'numeric'],
-            'specialty' => ['nullable', 'string', 'max:100'],
+            'specialty'      => ['nullable', 'string', 'max:100'],
         ]);
 
         $user->update([
             ...$validated,
         ]);
 
-        $this->syncDoctorProfile($user->refresh(), $validated['specialty'] ?? null);
+        $this->syncDoctor($user->refresh(), $validated['specialty'] ?? null);
 
         return redirect()->route('masters.users.index')->with('success', 'Staff member updated.');
     }
@@ -76,7 +74,11 @@ class StaffController extends Controller
         return redirect()->route('masters.users.index')->with('success', 'Staff member archived.');
     }
 
-    protected function syncDoctorProfile(User $user, ?string $specialty): void
+    /**
+     * Sync the dental_doctors record when a user has the 'doctor' role.
+     * Uses the new dental_doctors table (Doctor model), not the removed doctor_profiles.
+     */
+    protected function syncDoctor(User $user, ?string $specialization): void
     {
         $role = Role::query()->find($user->role_id);
 
@@ -84,15 +86,19 @@ class StaffController extends Controller
             return;
         }
 
-        DoctorProfile::query()->updateOrCreate(
+        $seq = Doctor::query()->withTrashed()->count() + 1;
+
+        Doctor::query()->updateOrCreate(
             ['user_id' => $user->id],
             [
-                'branch_id' => $user->branch_id,
-                'specialty' => $specialty ?: 'General Dentistry',
-                'room_number' => 'R-'.str_pad((string) ($user->id % 10 ?: 1), 2, '0', STR_PAD_LEFT),
+                'doctor_code'      => 'DOC-' . str_pad((string) $seq, 4, '0', STR_PAD_LEFT),
+                'first_name'       => explode(' ', $user->name)[0] ?? $user->name,
+                'last_name'        => implode(' ', array_slice(explode(' ', $user->name), 1)) ?: null,
+                'mobile'           => $user->phone ?? '',
+                'email'            => $user->email,
+                'specialization'   => $specialization ?: 'General Dentistry',
                 'consultation_fee' => 600,
-                'theme_color' => '#0f766e',
-                'is_available' => true,
+                'status'           => 'active',
             ],
         );
     }

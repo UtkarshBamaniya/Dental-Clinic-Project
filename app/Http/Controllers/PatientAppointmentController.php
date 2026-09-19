@@ -4,17 +4,21 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\AppointmentRequest;
 use App\Models\Appointment;
-use App\Models\AppointmentBilling;
 use App\Models\Patient;
 use App\Repositories\AppointmentRepo;
-use App\Services\AppointmentAssignmentService;
-use Carbon\Carbon;
 use Illuminate\Http\Request;
 
+/**
+ * Legacy patient appointment controller — kept for route compatibility.
+ *
+ * Updated to use dental_* architecture:
+ *   - Removed AppointmentAssignmentService (doctor_profiles dependency removed)
+ *   - AppointmentRepo now queries dental_appointments / dental_patients
+ *   - No references to branches, doctor_profiles, or old appointments table
+ */
 class PatientAppointmentController extends Controller
 {
     public function __construct(
-        protected AppointmentAssignmentService $assignmentService,
         protected AppointmentRepo $appointmentRepo,
     ) {
     }
@@ -91,52 +95,26 @@ class PatientAppointmentController extends Controller
 
     /**
      * Store a follow-up appointment for a given patient.
-     * Creates a new appointment with parent_appointment_id pointing to the patient's latest appointment.
+     * Links previous_appointment_id to patient's latest appointment (dental_appointments).
      */
     public function storeFollowUp(AppointmentRequest $request, Patient $patient)
     {
         $validated = $request->validated();
 
-        // Link to the patient's latest appointment as parent
-        $parentAppointment = Appointment::query()
+        // Link to the patient's latest appointment as previous
+        $previousAppointment = Appointment::query()
             ->where('patient_id', $patient->id)
             ->latest('appointment_date')
             ->first();
 
-        if ($parentAppointment) {
-            $validated['parent_appointment_id'] = $parentAppointment->id;
+        if ($previousAppointment) {
+            $validated['previous_appointment_id'] = $previousAppointment->id;
         }
 
         $validated['patient_id'] = $patient->id;
+        $validated['visit_type'] = $validated['visit_type'] ?? 'Follow-up';
 
-        if (empty($validated['doctor_profile_id'])) {
-            $doctor = $this->assignmentService->assign(
-                branchId:        (int) $validated['branch_id'],
-                specialty:       $validated['specialty'],
-                appointmentDate: $validated['appointment_date'],
-                startTime:       $validated['start_time'],
-            );
-            $validated['doctor_profile_id'] = $doctor?->id;
-        }
-
-        $validated['booked_by'] = $request->user()->id;
-
-        $appointment = Appointment::query()->create(collect($validated)->except([
-            'patient_name',
-            'phone',
-            'email',
-            'inquiry_id',
-            'billing',
-        ])->all());
-
-        $billing = $validated['billing'] ?? [];
-        AppointmentBilling::query()->create([
-            'appointment_id'   => $appointment->id,
-            'estimated_amount' => $billing['estimated_amount'] ?? 0,
-            'paid_amount'      => $billing['paid_amount'] ?? 0,
-            'discount'         => $billing['discount'] ?? 0,
-            'payment_status'   => $billing['payment_status'] ?? 'unpaid',
-        ]);
+        $this->appointmentRepo->create($validated);
 
         if (request()->wantsJson()) {
             return response()->json(['success' => true, 'message' => 'Follow-up appointment created.']);

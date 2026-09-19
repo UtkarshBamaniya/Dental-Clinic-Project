@@ -4,8 +4,10 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * Expense model. branch_id column retained but no FK relationship (branches table removed).
+ */
 class Expense extends Model
 {
     use HasFactory;
@@ -23,11 +25,7 @@ class Expense extends Model
 
     protected $casts = [
         'expense_date' => 'date',
-        'amount' => 'decimal:2',
+        'amount'       => 'decimal:2',
     ];
-
-    public function branch(): BelongsTo
-    {
-        return $this->belongsTo(Branch::class)->withTrashed();
-    }
 }
+

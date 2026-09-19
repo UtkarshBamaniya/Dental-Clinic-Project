@@ -2,103 +2,48 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Branch;
-use App\Models\Inquiry;
-use App\Models\User;
 use Inertia\Inertia;
 use Inertia\Response;
 
+/**
+ * Inquiry controller (LEGACY)
+ *
+ * The inquiries table has been removed from the database.
+ * This controller has been neutralized to prevent crashes.
+ */
 class InquiryController extends Controller
 {
     public function index(): Response
     {
-        $fromDate = request('from_date');
-        $toDate   = request('to_date');
-
-        $query = Inquiry::query()
-            ->with(['branch', 'assignee', 'patient'])
-            ->latest();
-
-        if ($fromDate) {
-            $query->whereDate('created_at', '>=', $fromDate);
-        }
-
-        if ($toDate) {
-            $query->whereDate('created_at', '<=', $toDate);
-        }
-
         return Inertia::render('Inquiries/Index', [
-            'inquiries' => $query->get(),
-            'branches' => Branch::query()->orderBy('name')->get(['id', 'name']),
-            'staff' => User::query()
-                ->whereHas('roleRecord', function ($query) {
-                    $query->whereIn('code', ['super_admin', 'branch_admin', 'receptionist']);
-                })
-                ->orderBy('name')
-                ->get(['id', 'name']),
-            'sources' => ['Walk-in', 'Website', 'WhatsApp', 'Instagram', 'Referral', 'Call'],
-            'filters' => [
-                'from_date' => $fromDate,
-                'to_date'   => $toDate,
+            'inquiries' => [],
+            'staff'     => [],
+            'sources'   => [],
+            'filters'   => [
+                'from_date' => null,
+                'to_date'   => null,
             ],
         ]);
     }
 
     public function store()
     {
-        $validated = request()->validate([
-            'branch_id' => ['required', 'exists:branches,id'],
-            'assigned_to' => ['nullable', 'exists:users,id'],
-            'name' => ['required', 'string', 'max:255'],
-            'phone' => ['required', 'string', 'max:20'],
-            'email' => ['nullable', 'email', 'max:255'],
-            'source' => ['required', 'string', 'max:100'],
-            'treatment_interest' => ['required', 'string', 'max:255'],
-            'status' => ['required', 'string', 'max:50'],
-            'priority' => ['required', 'string', 'max:50'],
-            'next_follow_up_at' => ['nullable', 'date'],
-            'notes' => ['nullable', 'string'],
-        ]);
-
-        Inquiry::query()->create($validated);
-
-        return redirect()->route('inquiries.index')->with('success', 'Inquiry added.');
+        return redirect()->route('inquiries.index')->with('success', 'Legacy inquiry module is disabled.');
     }
 
-    public function markConverted(Inquiry $inquiry)
+    public function markConverted($id)
     {
-        $inquiry->update([
-            'status' => 'converted',
-        ]);
-
-        return redirect()->route('inquiries.index')->with('success', 'Inquiry marked as converted.');
+        return redirect()->route('inquiries.index')->with('success', 'Legacy inquiry module is disabled.');
     }
 
-    public function update(Inquiry $inquiry)
+    public function update($id)
     {
-        $validated = request()->validate([
-            'branch_id'          => ['required', 'exists:branches,id'],
-            'assigned_to'        => ['nullable', 'exists:users,id'],
-            'name'               => ['required', 'string', 'max:255'],
-            'phone'              => ['required', 'string', 'max:20'],
-            'email'              => ['nullable', 'email', 'max:255'],
-            'source'             => ['required', 'string', 'max:100'],
-            'treatment_interest' => ['required', 'string', 'max:255'],
-            'status'             => ['required', 'string', 'max:50'],
-            'priority'           => ['required', 'string', 'max:50'],
-            'next_follow_up_at'  => ['nullable', 'date'],
-            'notes'              => ['nullable', 'string'],
-        ]);
-
-        $inquiry->update($validated);
-
-        return redirect()->route('inquiries.index')->with('success', 'Inquiry updated.');
+        return redirect()->route('inquiries.index')->with('success', 'Legacy inquiry module is disabled.');
     }
 
-    public function destroy(Inquiry $inquiry)
+    public function destroy($id)
     {
-        $inquiry->delete();
-
-        return redirect()->route('inquiries.index')->with('success', 'Inquiry deleted.');
+        return redirect()->route('inquiries.index')->with('success', 'Legacy inquiry module is disabled.');
     }
 }
+

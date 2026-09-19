@@ -4,8 +4,10 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * JournalEntry model. branch_id column retained but no FK relationship (branches table removed).
+ */
 class JournalEntry extends Model
 {
     use HasFactory;
@@ -23,12 +25,8 @@ class JournalEntry extends Model
 
     protected $casts = [
         'entry_date' => 'date',
-        'debit' => 'decimal:2',
-        'credit' => 'decimal:2',
+        'debit'      => 'decimal:2',
+        'credit'     => 'decimal:2',
     ];
-
-    public function branch(): BelongsTo
-    {
-        return $this->belongsTo(Branch::class)->withTrashed();
-    }
 }
+

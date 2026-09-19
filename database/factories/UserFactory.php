@@ -31,7 +31,12 @@ class UserFactory extends Factory
             'phone' => fake()->numerify('98########'),
             'email_verified_at' => now(),
             'role' => fake()->randomElement(['branch_admin', 'receptionist', 'doctor', 'accountant']),
-            'role_id' => Role::query()->inRandomOrder()->value('id'),
+            'role_id' => function () {
+                return Role::query()->inRandomOrder()->value('id') ?? Role::query()->firstOrCreate(
+                    ['code' => 'staff'],
+                    ['name' => 'Staff', 'is_system' => false]
+                )->id;
+            },
             'job_title' => fake()->jobTitle(),
             'status' => true,
             'monthly_salary' => fake()->numberBetween(25000, 90000),

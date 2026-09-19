@@ -3,19 +3,17 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
-use App\Models\Branch;
 use App\Models\Doctor;
-use App\Models\DoctorProfile;
 use App\Models\PayrollRecord;
 use App\Models\Role;
 use Database\Factories\UserFactory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Illuminate\Database\Eloquent\SoftDeletes;
 
 class User extends Authenticatable
 {
@@ -58,25 +56,23 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
-            'password' => 'hashed',
-            'status' => 'boolean',
-            'monthly_salary' => 'decimal:2',
+            'password'          => 'hashed',
+            'status'            => 'boolean',
+            'monthly_salary'    => 'decimal:2',
         ];
     }
 
-    public function branch(): BelongsTo
-    {
-        return $this->belongsTo(Branch::class)->withTrashed();
-    }
+    // -------------------------------------------------------------------------
+    // Relationships
+    // -------------------------------------------------------------------------
 
+    /**
+     * The user's linked dental doctor record.
+     * Uses dental_doctors table (new architecture).
+     */
     public function doctor(): HasOne
     {
         return $this->hasOne(Doctor::class);
-    }
-
-    public function doctorProfile(): HasOne
-    {
-        return $this->hasOne(DoctorProfile::class);
     }
 
     public function roleRecord(): BelongsTo
@@ -88,6 +84,10 @@ class User extends Authenticatable
     {
         return $this->hasMany(PayrollRecord::class);
     }
+
+    // -------------------------------------------------------------------------
+    // Helper methods
+    // -------------------------------------------------------------------------
 
     public function isAdmin(): bool
     {
@@ -103,6 +103,10 @@ class User extends Authenticatable
     {
         return $this->role === 'doctor';
     }
+
+    // -------------------------------------------------------------------------
+    // Accessors / Mutators
+    // -------------------------------------------------------------------------
 
     public function getRoleAttribute(): ?string
     {

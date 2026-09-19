@@ -13,8 +13,8 @@ defineProps({
 });
 
 const form = useForm({
-    email: 'admin@smileworks.test',
-    password: 'password',
+    email: 'admin@smileclinic.com',
+    password: 'password123',
     remember: false,
 });
 

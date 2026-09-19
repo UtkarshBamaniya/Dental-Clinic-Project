@@ -3,12 +3,16 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\PatientRequest;
-use App\Models\Branch;
 use App\Models\Patient;
 use App\Repositories\PatientRepo;
 use Inertia\Inertia;
 use Inertia\Response;
 
+/**
+ * Patient controller — updated for dental_patients architecture.
+ *
+ * Removed: Branch dependency (branches table removed).
+ */
 class PatientController extends Controller
 {
     protected PatientRepo $patientRepo;
@@ -21,7 +25,6 @@ class PatientController extends Controller
     /**
      * Display the patient list page.
      * Returns JSON for DataTable AJAX fetches, Inertia page for normal requests.
-     * (Mirrors AreaMasterController::index() dual-response pattern.)
      */
     public function index()
     {
@@ -35,12 +38,11 @@ class PatientController extends Controller
             'title'     => 'Patients',
             'desc'      => 'Manage patient records – Add / Edit / Delete',
             'routeName' => 'patients',
-            'branches'  => Branch::orderBy('name')->get(['id', 'name']),
         ]);
     }
 
     /**
-     * Show create form (unused – create dialog is handled in Index page).
+     * Show create form (handled via dialog in Index page).
      */
     public function create(): Response
     {
@@ -62,12 +64,10 @@ class PatientController extends Controller
     }
 
     /**
-     * Return a single patient record – JSON for slide panel, Inertia for full page.
+     * Return a single patient record.
      */
     public function show(Patient $patient)
     {
-        $patient->load('branch:id,name');
-
         if (request()->wantsJson()) {
             return response()->json($patient);
         }
@@ -76,12 +76,10 @@ class PatientController extends Controller
     }
 
     /**
-     * Load data for the edit dialog – returns JSON when requested via axios.
+     * Load data for edit dialog.
      */
     public function edit(Patient $patient)
     {
-        $patient->load('branch:id,name');
-
         if (request()->wantsJson()) {
             return response()->json($patient);
         }

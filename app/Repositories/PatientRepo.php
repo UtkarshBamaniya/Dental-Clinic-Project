@@ -7,22 +7,30 @@ use Carbon\Carbon;
 use Exception;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
+/**
+ * Patient repository for dental_patients table.
+ *
+ * Updated from old patients table (name, phone, branch_id) to new
+ * dental_patients table (first_name, last_name, mobile, etc.).
+ */
 class PatientRepo
 {
     /**
-     * Paginated, filtered, and sorted patient list for the DataTable AJAX response.
-     * Mirrors the AreaMasterRepo::index() pattern from the reference project.
+     * Paginated, filtered, and sorted patient list.
      */
     public function index(array $input): LengthAwarePaginator
     {
-        $query = Patient::with('branch:id,name');
+        $query = Patient::query();
 
-        // ── Text search filters (column-level) ───────────────────────────────
-        if (!empty($input['name'])) {
-            $query->where('name', 'like', '%' . $input['name'] . '%');
+        // Text search filters
+        if (!empty($input['first_name'])) {
+            $query->where('first_name', 'like', '%' . $input['first_name'] . '%');
         }
-        if (!empty($input['phone'])) {
-            $query->where('phone', 'like', '%' . $input['phone'] . '%');
+        if (!empty($input['last_name'])) {
+            $query->where('last_name', 'like', '%' . $input['last_name'] . '%');
+        }
+        if (!empty($input['mobile'])) {
+            $query->where('mobile', 'like', '%' . $input['mobile'] . '%');
         }
         if (!empty($input['patient_code'])) {
             $query->where('patient_code', 'like', '%' . $input['patient_code'] . '%');
@@ -33,14 +41,11 @@ class PatientRepo
         if (!empty($input['gender'])) {
             $query->where('gender', $input['gender']);
         }
-        if (!empty($input['blood_group'])) {
-            $query->where('blood_group', 'like', '%' . $input['blood_group'] . '%');
-        }
-        if (!empty($input['branch_id'])) {
-            $query->where('branch_id', $input['branch_id']);
+        if (!empty($input['status'])) {
+            $query->where('status', $input['status']);
         }
 
-        // ── Date range filters ───────────────────────────────────────────────
+        // Date range filters
         if (!empty($input['from_date'])) {
             $query->whereDate('created_at', '>=', $input['from_date']);
         }
@@ -48,10 +53,10 @@ class PatientRepo
             $query->whereDate('created_at', '<=', $input['to_date']);
         }
 
-        // ── Sorting – guard against SQL injection via arbitrary column names ─
+        // Sorting
         $allowed = [
-            'id', 'patient_code', 'name', 'phone', 'email',
-            'gender', 'blood_group', 'date_of_birth', 'created_at',
+            'id', 'patient_code', 'first_name', 'last_name', 'mobile', 'email',
+            'gender', 'date_of_birth', 'created_at',
         ];
         $sortField = in_array($input['sortField'] ?? '', $allowed)
             ? $input['sortField']
@@ -60,7 +65,6 @@ class PatientRepo
 
         $query->orderBy($sortField, $sortOrder);
 
-        // ── Pagination ───────────────────────────────────────────────────────
         $size = isset($input['size']) && is_numeric($input['size']) ? (int) $input['size'] : 50;
         $page = isset($input['page']) && is_numeric($input['page']) ? (int) $input['page'] : 1;
 
@@ -83,11 +87,11 @@ class PatientRepo
     }
 
     /**
-     * Find a single patient with branch relationship (for show/edit).
+     * Find a single patient with relationships.
      */
     public function find(int $id): ?Patient
     {
-        return Patient::with('branch:id,name')->find($id);
+        return Patient::with(['medicalHistory'])->find($id);
     }
 
     /**
@@ -104,7 +108,7 @@ class PatientRepo
     }
 
     /**
-     * Delete a patient by ID.
+     * Soft-delete a patient by ID.
      */
     public function destroy(int $id): bool
     {
