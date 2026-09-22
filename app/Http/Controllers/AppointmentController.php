@@ -2,54 +2,76 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\AppointmentIndexRequest;
 use App\Http\Requests\StoreAppointmentRequest;
 use App\Http\Requests\UpdateAppointmentRequest;
+use App\Http\Resources\AppointmentResource;
 use App\Models\Appointment;
-use App\Models\AppointmentBilling;
 use App\Models\AppointmentType;
 use App\Models\Chair;
 use App\Models\Doctor;
-use App\Models\Inquiry;
 use App\Models\Patient;
 use App\Services\AppointmentService;
-use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
 use Inertia\Inertia;
 use Inertia\Response;
 
+/**
+ * Appointment Master controller — Step 6 dental architecture.
+ *
+ * Thin controller: all query/filter/pagination/business logic
+ * lives in AppointmentService.
+ *
+ * Dual-response pattern:
+ *   wantsJson()  → JSON (AJAX / DataTable / API)
+ *   default      → Inertia page render
+ */
 class AppointmentController extends Controller
 {
     public function __construct(
         protected AppointmentService $appointmentService,
-    ) {
-    }
+    ) {}
 
     // -------------------------------------------------------------------------
-    // Index
+    // Index — paginated, filtered, sorted Appointment Master list
     // -------------------------------------------------------------------------
 
     /**
-     * Return the Appointment Master list.
+     * GET /appointments
      *
-     * Dual response:
-     *   – JSON (wantsJson)  → paginated appointment data for AJAX / DataTable
-     *   – Inertia           → full page render with reference data
+     * Supported query params (all optional, validated by AppointmentIndexRequest):
+     *   search, date, date_from, date_to,
+     *   doctor_id, chair_id, appointment_type_id,
+     *   visit_type, priority, status, payment_status,
+     *   sort_by, sort_order, per_page, page
      */
-    public function index()
+    public function index(AppointmentIndexRequest $request): JsonResponse|Response
     {
-        if (request()->wantsJson()) {
-            return response()->json($this->buildIndexQuery()->paginate(
-                perPage: (int) (request('size', 50)),
-                page:    (int) (request('page', 1))
-            ));
+        if ($request->wantsJson()) {
+            $appointments = $this->appointmentService->getAppointments(
+                $request->validated()
+            );
+
+            return response()->json([
+                'data' => AppointmentResource::collection($appointments->items()),
+                'meta' => [
+                    'current_page' => $appointments->currentPage(),
+                    'last_page'    => $appointments->lastPage(),
+                    'per_page'     => $appointments->perPage(),
+                    'total'        => $appointments->total(),
+                ],
+            ]);
         }
 
+        // Inertia render — pass reference data for the filter dropdowns
         return Inertia::render('Appointments/Index', [
             'title'            => 'Appointments',
             'desc'             => 'Manage appointment bookings and schedules',
             'routeName'        => 'appointments',
             'patients'         => Patient::query()
+                ->where('status', 'active')
                 ->orderBy('first_name')
-                ->get(['id', 'patient_code', 'first_name', 'last_name', 'mobile']),
+                ->get(['id', 'patient_code', 'first_name', 'middle_name', 'last_name', 'mobile']),
             'doctors'          => Doctor::query()
                 ->where('status', 'active')
                 ->orderBy('first_name')
@@ -61,30 +83,34 @@ class AppointmentController extends Controller
             'appointmentTypes' => AppointmentType::query()
                 ->where('status', 'active')
                 ->orderBy('name')
-                ->get(['id', 'name', 'description']),
-            'filters'          => request()->only(['from_date', 'to_date', 'status', 'doctor_id', 'search']),
+                ->get(['id', 'name']),
+            'filters'          => $request->only([
+                'search', 'date', 'date_from', 'date_to',
+                'doctor_id', 'chair_id', 'appointment_type_id',
+                'visit_type', 'priority', 'status', 'payment_status',
+                'sort_by', 'sort_order',
+            ]),
         ]);
     }
 
     // -------------------------------------------------------------------------
-    // Store
+    // Store — create a new appointment
     // -------------------------------------------------------------------------
 
     /**
-     * Create a new appointment.
+     * POST /appointments
      *
-     * Delegates all creation logic (appointment number, examination, treatments,
-     * billing, payment transaction) to AppointmentService.
+     * All creation logic (appointment number, billing, payment) is delegated
+     * to AppointmentService::create().  This method is unchanged from Step 4.
      */
-    public function store(StoreAppointmentRequest $request)
+    public function store(StoreAppointmentRequest $request): JsonResponse|\Illuminate\Http\RedirectResponse
     {
         $appointment = $this->appointmentService->create($request->validated());
 
-        if (request()->wantsJson()) {
+        if ($request->wantsJson()) {
             return response()->json([
-                'success'     => true,
                 'message'     => 'Appointment created successfully.',
-                'appointment' => $appointment,
+                'data'        => new AppointmentResource($appointment),
             ], 201);
         }
 
@@ -93,57 +119,48 @@ class AppointmentController extends Controller
     }
 
     // -------------------------------------------------------------------------
-    // Show
+    // Show — full appointment detail
     // -------------------------------------------------------------------------
 
     /**
-     * Return the complete appointment detail.
+     * GET /appointments/{appointment}
      *
-     * Loads all relationships required by the Appointment Detail Drawer.
+     * Loads all detail relationships via AppointmentService::getAppointmentDetails().
+     * Previous/follow-up appointments are loaded shallowly — no recursive nesting.
      */
-    public function show(Appointment $appointment)
+    public function show(Appointment $appointment): JsonResponse|Response
     {
-        $appointment->load([
-            'patient',
-            'doctor',
-            'chair',
-            'appointmentType',
-            'examination',
-            'treatments.treatment',
-            'billing',
-            'paymentTransactions',
-            'notes',
-            'prescriptions',
-            'previousAppointment',
-            'followUpAppointments',
-        ]);
-
-        if (request()->wantsJson()) {
-            return response()->json($appointment);
-        }
-
-        return Inertia::render('Appointments/Index', compact('appointment'));
-    }
-
-    // -------------------------------------------------------------------------
-    // Update
-    // -------------------------------------------------------------------------
-
-    /**
-     * Update an existing appointment.
-     *
-     * Delegates all update logic (treatment recalculation, billing recalculation
-     * from payment transactions) to AppointmentService.
-     */
-    public function update(UpdateAppointmentRequest $request, Appointment $appointment)
-    {
-        $appointment = $this->appointmentService->update($appointment, $request->validated());
+        $appointment = $this->appointmentService->getAppointmentDetails($appointment);
 
         if (request()->wantsJson()) {
             return response()->json([
-                'success'     => true,
-                'message'     => 'Appointment updated successfully.',
-                'appointment' => $appointment,
+                'data' => new AppointmentResource($appointment),
+            ]);
+        }
+
+        return Inertia::render('Appointments/Index', [
+            'appointment' => new AppointmentResource($appointment),
+        ]);
+    }
+
+    // -------------------------------------------------------------------------
+    // Update — update an existing appointment
+    // -------------------------------------------------------------------------
+
+    /**
+     * PUT /appointments/{appointment}
+     *
+     * All update logic (billing recalculation, treatment replacement) is
+     * delegated to AppointmentService::update().  Unchanged from Step 4.
+     */
+    public function update(UpdateAppointmentRequest $request, Appointment $appointment): JsonResponse|\Illuminate\Http\RedirectResponse
+    {
+        $appointment = $this->appointmentService->update($appointment, $request->validated());
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'message' => 'Appointment updated successfully.',
+                'data'    => new AppointmentResource($appointment),
             ]);
         }
 
@@ -152,19 +169,22 @@ class AppointmentController extends Controller
     }
 
     // -------------------------------------------------------------------------
-    // Public booking (pre-existing functionality — not part of dental_* step 4)
+    // Public booking (pre-existing functionality — kept for route compatibility)
     // -------------------------------------------------------------------------
 
     public function publicCreate(): Response
     {
         return Inertia::render('Public/BookAppointment', [
-            'specialties' => ['Orthodontics', 'Root Canal', 'Implants', 'Pediatric Dentistry', 'Cosmetic Dentistry', 'General Dentistry'],
+            'specialties' => [
+                'Orthodontics', 'Root Canal', 'Implants',
+                'Pediatric Dentistry', 'Cosmetic Dentistry', 'General Dentistry',
+            ],
         ]);
     }
 
-    public function publicStore()
+    public function publicStore(): \Illuminate\Http\RedirectResponse
     {
-        $validated = request()->validate([
+        request()->validate([
             'patient_name'     => ['required', 'string', 'max:255'],
             'phone'            => ['required', 'string', 'max:20'],
             'email'            => ['nullable', 'email', 'max:255'],
@@ -174,67 +194,7 @@ class AppointmentController extends Controller
             'notes'            => ['nullable', 'string'],
         ]);
 
-        // Public booking creates a walk-in patient inquiry; handled outside dental_* appointment flow
-        return redirect()->route('public.booking')->with('success', 'Your appointment request has been submitted successfully.');
-    }
-
-    // -------------------------------------------------------------------------
-    // Private helpers
-    // -------------------------------------------------------------------------
-
-    /**
-     * Build the index query with all needed eager-loaded relationships for the
-     * Appointment Master list view.  Avoids N+1 queries.
-     *
-     * @return \Illuminate\Database\Eloquent\Builder
-     */
-    private function buildIndexQuery()
-    {
-        $query = Appointment::query()
-            ->with([
-                'patient:id,patient_code,first_name,last_name,mobile',
-                'doctor:id,doctor_code,first_name,last_name,specialization',
-                'chair:id,chair_name,chair_number',
-                'appointmentType:id,name',
-                'examination:id,appointment_id,symptoms,diagnosis',
-                'treatments.treatment:id,name,default_price',
-                'billing',
-                'paymentTransactions',
-                'notes',
-                'prescriptions',
-                'previousAppointment:id,appointment_no,appointment_date',
-            ])
-            ->orderByDesc('appointment_date')
-            ->orderByDesc('appointment_time');
-
-        // Filters
-        if ($search = request('search')) {
-            $like = '%' . $search . '%';
-            $query->where(function ($q) use ($like) {
-                $q->where('appointment_no', 'like', $like)
-                  ->orWhere('chief_complaint', 'like', $like)
-                  ->orWhereHas('patient', fn ($pq) => $pq->where('first_name', 'like', $like)
-                      ->orWhere('last_name', 'like', $like)
-                      ->orWhere('mobile', 'like', $like));
-            });
-        }
-
-        if ($fromDate = request('from_date')) {
-            $query->whereDate('appointment_date', '>=', $fromDate);
-        }
-
-        if ($toDate = request('to_date')) {
-            $query->whereDate('appointment_date', '<=', $toDate);
-        }
-
-        if ($status = request('status')) {
-            $query->where('status', $status);
-        }
-
-        if ($doctorId = request('doctor_id')) {
-            $query->where('doctor_id', $doctorId);
-        }
-
-        return $query;
+        return redirect()->route('public.booking')
+            ->with('success', 'Your appointment request has been submitted successfully.');
     }
 }

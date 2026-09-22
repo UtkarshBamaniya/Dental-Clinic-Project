@@ -2,116 +2,173 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\PatientRequest;
+use App\Http\Requests\StorePatientRequest;
+use App\Http\Requests\UpdatePatientRequest;
+use App\Http\Resources\PatientResource;
 use App\Models\Patient;
-use App\Repositories\PatientRepo;
+use App\Services\PatientService;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * Patient controller — updated for dental_patients architecture.
+ * Patient controller — Step 5 dental architecture.
  *
- * Removed: Branch dependency (branches table removed).
+ * Thin controller: all business logic (code generation, duplicate
+ * detection, medical history, transactions) lives in PatientService.
+ *
+ * Dual-response pattern:
+ *   wantsJson()  → JSON (used by AJAX / Appointment patient-selector)
+ *   default      → Inertia page (used by the full patient management UI)
  */
 class PatientController extends Controller
 {
-    protected PatientRepo $patientRepo;
+    public function __construct(
+        protected PatientService $patientService,
+    ) {}
 
-    public function __construct(PatientRepo $patientRepo)
-    {
-        $this->patientRepo = $patientRepo;
-    }
+    // -------------------------------------------------------------------------
+    // Index — paginated patient list
+    // -------------------------------------------------------------------------
 
     /**
-     * Display the patient list page.
-     * Returns JSON for DataTable AJAX fetches, Inertia page for normal requests.
+     * GET /patients
+     *
+     * Query params: ?search=&status=&per_page=&page=
      */
-    public function index()
+    public function index(Request $request): JsonResponse|Response
     {
-        $input = request()->all();
+        if ($request->wantsJson()) {
+            $patients = $this->patientService->listPatients($request->only([
+                'search', 'status', 'per_page', 'page',
+            ]));
 
-        if (request()->wantsJson()) {
-            return response()->json($this->patientRepo->index($input));
+            return response()->json([
+                'data' => PatientResource::collection($patients->items()),
+                'meta' => [
+                    'current_page' => $patients->currentPage(),
+                    'last_page'    => $patients->lastPage(),
+                    'per_page'     => $patients->perPage(),
+                    'total'        => $patients->total(),
+                ],
+            ]);
         }
 
         return Inertia::render('Patients/Index', [
             'title'     => 'Patients',
-            'desc'      => 'Manage patient records – Add / Edit / Delete',
+            'desc'      => 'Manage patient records',
             'routeName' => 'patients',
+            'filters'   => $request->only(['search', 'status']),
         ]);
     }
 
-    /**
-     * Show create form (handled via dialog in Index page).
-     */
-    public function create(): Response
-    {
-        return Inertia::render('Patients/Index');
-    }
+    // -------------------------------------------------------------------------
+    // Store — create a new patient
+    // -------------------------------------------------------------------------
 
     /**
-     * Store a newly created patient.
+     * POST /patients
+     *
+     * Returns 201 with the created patient on success.
+     * Returns 422 with duplicate-patient info if mobile already exists.
      */
-    public function store(PatientRequest $request)
+    public function store(StorePatientRequest $request): JsonResponse
     {
-        $this->patientRepo->create($request->validated());
-
-        if (request()->wantsJson()) {
-            return response()->json(['success' => true, 'message' => 'Patient registered successfully.']);
+        try {
+            $patient = $this->patientService->createPatient($request->validated());
+        } catch (ValidationException $e) {
+            // Re-throw so Laravel's exception handler returns the correct 422.
+            // The errors bag may contain structured data (patient id/code)
+            // for the frontend to offer "select existing patient" UX.
+            throw $e;
         }
 
-        return back()->with('success', 'Patient registered successfully.');
+        return response()->json([
+            'message' => 'Patient created successfully.',
+            'data'    => new PatientResource($patient),
+        ], 201);
     }
 
+    // -------------------------------------------------------------------------
+    // Show — patient detail with medical history
+    // -------------------------------------------------------------------------
+
     /**
-     * Return a single patient record.
+     * GET /patients/{patient}
      */
-    public function show(Patient $patient)
+    public function show(Patient $patient): JsonResponse|Response
     {
+        $patient = $this->patientService->getPatient($patient);
+
         if (request()->wantsJson()) {
-            return response()->json($patient);
+            return response()->json([
+                'data' => new PatientResource($patient),
+            ]);
         }
 
-        return Inertia::render('Patients/Index', compact('patient'));
+        return Inertia::render('Patients/Show', [
+            'patient' => new PatientResource($patient),
+        ]);
     }
 
+    // -------------------------------------------------------------------------
+    // Update — update patient + optional medical history
+    // -------------------------------------------------------------------------
+
     /**
-     * Load data for edit dialog.
+     * PUT /patients/{patient}
      */
-    public function edit(Patient $patient)
+    public function update(UpdatePatientRequest $request, Patient $patient): JsonResponse
     {
-        if (request()->wantsJson()) {
-            return response()->json($patient);
+        try {
+            $patient = $this->patientService->updatePatient($patient, $request->validated());
+        } catch (ValidationException $e) {
+            throw $e;
         }
 
-        return Inertia::render('Patients/Index', compact('patient'));
+        return response()->json([
+            'message' => 'Patient updated successfully.',
+            'data'    => new PatientResource($patient),
+        ]);
     }
 
-    /**
-     * Update the specified patient.
-     */
-    public function update(PatientRequest $request, Patient $patient)
-    {
-        $this->patientRepo->update($request->validated(), $patient->id);
-
-        if (request()->wantsJson()) {
-            return response()->json(['success' => true, 'message' => 'Patient updated successfully.']);
-        }
-
-        return back()->with('success', 'Patient updated successfully.');
-    }
+    // -------------------------------------------------------------------------
+    // Search — lightweight endpoint for Appointment Master patient selector
+    // -------------------------------------------------------------------------
 
     /**
-     * Delete the specified patient.
+     * GET /patients/search?q=rahul
+     *
+     * Returns up to 20 active patients matching the search term.
+     * Does NOT load medicalHistory — kept intentionally lightweight.
      */
-    public function destroy(Patient $patient)
+    public function search(Request $request): JsonResponse
     {
-        $this->patientRepo->destroy($patient->id);
+        $q        = (string) ($request->query('q', ''));
+        $patients = $this->patientService->searchPatients($q);
 
-        if (request()->wantsJson()) {
-            return response()->json(['success' => true, 'message' => 'Patient deleted successfully.']);
-        }
+        // Transform manually to include full_name without loading a full Resource
+        $data = $patients->map(function (Patient $patient) {
+            return [
+                'id'           => $patient->id,
+                'patient_code' => $patient->patient_code,
+                'first_name'   => $patient->first_name,
+                'middle_name'  => $patient->middle_name,
+                'last_name'    => $patient->last_name,
+                'full_name'    => trim(collect([
+                    $patient->first_name,
+                    $patient->middle_name,
+                    $patient->last_name,
+                ])->filter()->implode(' ')),
+                'mobile'        => $patient->mobile,
+                'gender'        => $patient->gender,
+                'date_of_birth' => $patient->date_of_birth?->toDateString(),
+                'status'        => $patient->status,
+            ];
+        });
 
-        return redirect()->route('patients.index')->with('success', 'Patient deleted successfully.');
+        return response()->json(['data' => $data]);
     }
 }

@@ -36,8 +36,13 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('/inquiries/{inquiry}', [InquiryController::class, 'destroy'])->name('inquiries.destroy');
     Route::patch('/inquiries/{inquiry}/converted', [InquiryController::class, 'markConverted'])->name('inquiries.converted');
 
-    // Patients
-    Route::resource('patients', PatientController::class);
+    // Patients (Step 5 — dental_patients architecture)
+    // IMPORTANT: search must be registered BEFORE {patient} wildcard
+    Route::get('/patients/search', [PatientController::class, 'search'])->name('patients.search');
+    Route::get('/patients',          [PatientController::class, 'index'])->name('patients.index');
+    Route::post('/patients',         [PatientController::class, 'store'])->name('patients.store');
+    Route::get('/patients/{patient}', [PatientController::class, 'show'])->name('patients.show');
+    Route::put('/patients/{patient}', [PatientController::class, 'update'])->name('patients.update');
 
     // Appointments (Appointment Master — dental_* architecture)
     Route::get('/appointments', [AppointmentController::class, 'index'])->name('appointments.index');

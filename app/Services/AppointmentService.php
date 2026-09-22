@@ -9,6 +9,8 @@ use App\Models\AppointmentTreatment;
 use App\Models\Doctor;
 use App\Models\PaymentTransaction;
 use App\Models\Treatment;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
@@ -417,6 +419,216 @@ class AppointmentService
         ]);
     }
 
+    // ---------------------------------------------------------------------------
+    // Appointment Master — List (Step 6)
+    // ---------------------------------------------------------------------------
+
+    /**
+     * Return a paginated, filtered, and sorted list of appointments for the
+     * Appointment Master screen.
+     *
+     * Supported $filters keys (all optional):
+     *   search, date, date_from, date_to, doctor_id, chair_id,
+     *   appointment_type_id, visit_type, priority, status, payment_status,
+     *   sort_by, sort_order, per_page, page
+     *
+     * @param  array<string, mixed>  $filters  Validated data from AppointmentIndexRequest
+     * @return LengthAwarePaginator
+     */
+    public function getAppointments(array $filters): LengthAwarePaginator
+    {
+        $query = Appointment::query()
+            ->with([
+                'patient:id,patient_code,first_name,middle_name,last_name,mobile,gender',
+                'doctor:id,doctor_code,first_name,last_name',
+                'chair:id,chair_name,chair_number',
+                'appointmentType:id,name',
+                'billing:id,appointment_id,consultation_fee,treatment_amount,discount,grand_total,paid_amount,balance_amount,payment_status,remarks',
+            ]);
+
+        $this->applySearch($query, $filters['search'] ?? null);
+        $this->applyDateFilter($query, $filters);
+        $this->applyRelationshipFilters($query, $filters);
+        $this->applyStatusFilters($query, $filters);
+        $this->applySorting($query, $filters);
+
+        $perPage = min((int) ($filters['per_page'] ?? 20), 100);
+        $perPage = $perPage < 1 ? 20 : $perPage;
+        $page    = (int) ($filters['page'] ?? 1);
+
+        return $query->paginate($perPage, ['*'], 'page', $page);
+    }
+
+    // ---------------------------------------------------------------------------
+    // Appointment Master — Detail (Step 6)
+    // ---------------------------------------------------------------------------
+
+    /**
+     * Load the complete appointment with all detail relationships.
+     *
+     * Previous appointment is loaded shallowly (no recursive nesting).
+     * Follow-up appointments are loaded shallowly.
+     *
+     * @param  Appointment  $appointment
+     * @return Appointment
+     */
+    public function getAppointmentDetails(Appointment $appointment): Appointment
+    {
+        return $appointment->load([
+            'patient:id,patient_code,first_name,middle_name,last_name,mobile,gender,date_of_birth,email,address,city,state',
+            'doctor:id,doctor_code,first_name,last_name,specialization,consultation_fee',
+            'chair:id,chair_name,chair_number',
+            'appointmentType:id,name,description',
+            'examination',
+            'treatments.treatment:id,name,description,default_price',
+            'billing',
+            'paymentTransactions',
+            'appointmentNotes',
+            'prescriptions',
+            // Shallow: only the summary fields, no further nesting
+            'previousAppointment:id,appointment_no,appointment_date,status',
+            'followUpAppointments:id,appointment_no,appointment_date,status,previous_appointment_id',
+        ]);
+    }
+
+
+    // ---------------------------------------------------------------------------
+    // Private query helpers (Step 6)
+    // ---------------------------------------------------------------------------
+
+    /**
+     * Apply full-text search across appointment_no, patient fields.
+     *
+     * Correct grouping ensures:
+     *   (status = X) AND (search conditions…)
+     *
+     * rather than polluting AND conditions with OR.
+     */
+    private function applySearch(Builder $query, ?string $search): void
+    {
+        if (! $search || trim($search) === '') {
+            return;
+        }
+
+        $like = '%' . $search . '%';
+
+        $query->where(function (Builder $q) use ($like) {
+            $q->where('appointment_no', 'like', $like)
+              ->orWhereHas('patient', function (Builder $pq) use ($like) {
+                  $pq->where('patient_code', 'like', $like)
+                     ->orWhere('first_name',  'like', $like)
+                     ->orWhere('middle_name', 'like', $like)
+                     ->orWhere('last_name',   'like', $like)
+                     ->orWhere('mobile',      'like', $like);
+              });
+        });
+    }
+
+    /**
+     * Apply date / date-range filters.
+     *
+     * ?date=Y-m-d              → exact date match
+     * ?date_from=Y-m-d         → from date (inclusive)
+     * ?date_to=Y-m-d           → to date (inclusive)
+     * Both from+to together    → range
+     */
+    private function applyDateFilter(Builder $query, array $filters): void
+    {
+        if ($date = $filters['date'] ?? null) {
+            $query->whereDate('appointment_date', $date);
+            return; // ?date takes precedence over from/to
+        }
+
+        if ($from = $filters['date_from'] ?? null) {
+            $query->whereDate('appointment_date', '>=', $from);
+        }
+
+        if ($to = $filters['date_to'] ?? null) {
+            $query->whereDate('appointment_date', '<=', $to);
+        }
+    }
+
+    /**
+     * Apply filters for doctor, chair, appointment type, visit type, priority.
+     */
+    private function applyRelationshipFilters(Builder $query, array $filters): void
+    {
+        if ($doctorId = $filters['doctor_id'] ?? null) {
+            $query->where('doctor_id', $doctorId);
+        }
+
+        if ($chairId = $filters['chair_id'] ?? null) {
+            $query->where('chair_id', $chairId);
+        }
+
+        if ($typeId = $filters['appointment_type_id'] ?? null) {
+            $query->where('appointment_type_id', $typeId);
+        }
+
+        if ($visitType = $filters['visit_type'] ?? null) {
+            $query->where('visit_type', $visitType);
+        }
+
+        if ($priority = $filters['priority'] ?? null) {
+            $query->where('priority', $priority);
+        }
+    }
+
+    /**
+     * Apply appointment status and payment status filters.
+     *
+     * These are intentionally separated:
+     *   - status lives on dental_appointments
+     *   - payment_status lives on dental_appointment_billings
+     *
+     * They are completely independent — a completed appointment can be unpaid.
+     */
+    private function applyStatusFilters(Builder $query, array $filters): void
+    {
+        if ($status = $filters['status'] ?? null) {
+            $query->where('status', $status);
+        }
+
+        if ($paymentStatus = $filters['payment_status'] ?? null) {
+            $query->whereHas('billing', function (Builder $bq) use ($paymentStatus) {
+                $bq->where('payment_status', $paymentStatus);
+            });
+        }
+    }
+
+    /**
+     * Apply sorting with a strict whitelist to prevent column injection.
+     *
+     * Default: appointment_date DESC, appointment_time DESC
+     */
+    private function applySorting(Builder $query, array $filters): void
+    {
+        $allowed = [
+            'appointment_no',
+            'appointment_date',
+            'appointment_time',
+            'created_at',
+            'updated_at',
+        ];
+
+        $sortBy    = in_array($filters['sort_by'] ?? '', $allowed, true)
+            ? $filters['sort_by']
+            : 'appointment_date';
+
+        $sortOrder = ($filters['sort_order'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
+
+        $query->orderBy($sortBy, $sortOrder);
+
+        // Secondary sort for deterministic ordering when primary values are equal
+        if ($sortBy !== 'appointment_time') {
+            $query->orderBy('appointment_time', $sortOrder);
+        }
+    }
+
+    // ---------------------------------------------------------------------------
+    // Existing helpers — preserved untouched
+    // ---------------------------------------------------------------------------
+
     /**
      * Default eager-load relationships for controller responses.
      *
@@ -433,7 +645,7 @@ class AppointmentService
             'treatments.treatment',
             'billing',
             'paymentTransactions',
-            'notes',
+            'appointmentNotes',
             'prescriptions',
             'previousAppointment',
         ];

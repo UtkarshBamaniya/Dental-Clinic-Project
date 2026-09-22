@@ -85,10 +85,16 @@ class Appointment extends Model
         return $this->hasMany(PaymentTransaction::class);
     }
 
-    public function notes()
+    /**
+     * Appointment notes (dental_appointment_notes table).
+     * NOTE: Method name is appointmentNotes() — not notes() — to prevent
+     * a name collision with the `notes` text column on dental_appointments.
+     */
+    public function appointmentNotes()
     {
         return $this->hasMany(AppointmentNote::class);
     }
+
 
     public function prescriptions()
     {
