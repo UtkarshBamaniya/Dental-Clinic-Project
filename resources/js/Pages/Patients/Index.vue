@@ -1,23 +1,5 @@
 <script setup>
-/**
- * Patients/Index.vue
- *
- * Completely rewritten to mirror the AreaMaster/Index.vue architecture
- * from the reference project:
- *
- *   ┌─────────────────────────────────────────────────────┐
- *   │  Toolbar  [Icon + Title + Desc]   [+ Add] [⚙ Cols] │
- *   ├─────────────────────────────────────────────────────┤
- *   │  DentalComponent/DataTable                          │
- *   │  (server-side pagination + sort + column filters)   │
- *   └─────────────────────────────────────────────────────┘
- *   + ActionMenu (floating popup, anchored to ≡ per row)
- *   + Form.vue   (create/edit slide dialog)
- *   + Show.vue   (read-only detail dialog)
- *
- * Props (from PatientController::index via Inertia):
- *   title, desc, routeName, branches
- */
+
 import { ref } from 'vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import Button from 'primevue/button';
@@ -42,7 +24,7 @@ const props = defineProps({
 });
 
 // ── Component refs ───────────────────────────────────────────────────────────
-const aug_data_table  = ref(null);
+const data_table_ref  = ref(null);
 const action_menu_ref = ref(null);
 const form_ref        = ref(null);
 const show_ref        = ref(null);
@@ -70,7 +52,7 @@ const allColumns = ref([
     },
     {
         key:       2,
-        field:     'name',
+        field:     'full_name',
         header:    'Name',
         filterType: 'text',
         filterNm:  'name',
@@ -79,50 +61,75 @@ const allColumns = ref([
     },
     {
         key:       3,
-        field:     'phone',
-        header:    'Phone',
+        field:     'mobile',
+        header:    'Mobile',
         filterType: 'text',
-        filterNm:  'phone',
+        filterNm:  'mobile',
         sortable:  true,
         visible:   true,
     },
     {
         key:       4,
-        field:     'branch.name',
-        header:    'Branch',
+        field:     'dob_formatted',
+        header:    'Date of Birth',
+        filterType: 'text',
+        filterNm:  'date_of_birth',
+        sortable:  true,
         visible:   true,
     },
     {
         key:       5,
-        field:     'gender',
-        header:    'Gender',
-        sortable:  true,
+        field:     'medical_history.blood_group',
+        header:    'Blood Group',
+        filterType: 'text',
+        filterNm:  'blood_group',
+        sortable:  false,
         visible:   true,
     },
     {
         key:       6,
-        field:     'blood_group',
-        header:    'Blood Group',
-        filterType: 'text',
-        filterNm:  'blood_group',
-        sortable:  true,
-        visible:   true,
-    },
-    {
-        key:       7,
         field:     'email',
         header:    'Email',
         filterType: 'text',
         filterNm:  'email',
         sortable:  true,
-        visible:   false,   // hidden by default; user can enable via ColumnArrange
+        visible:   false,
+    },
+    {
+        key:       6,
+        field:     'city',
+        header:    'City',
+        filterType: 'text',
+        filterNm:  'city',
+        sortable:  true,
+        visible:   true,
+    },
+    {
+        key:       7,
+        field:     'state',
+        header:    'State',
+        filterType: 'text',
+        filterNm:  'state',
+        sortable:  true,
+        visible:   true,
     },
     {
         key:       8,
-        field:     'date_of_birth',
-        header:    'Date of Birth',
+        field:     'occupation',
+        header:    'Occupation',
+        filterType: 'text',
+        filterNm:  'occupation',
         sortable:  true,
-        visible:   false,
+        visible:   true,
+    },
+    {
+        key:       9,
+        field:     'status',
+        header:    'Status',
+        filterType: 'text',
+        filterNm:  'status',
+        sortable:  true,
+        visible:   true,
     },
 ]);
 
@@ -171,21 +178,21 @@ const onRowAction = ({ event, data }) => {
                     <ColumnArrange
                         :moduleNm="moduleNm"
                         :allColumns="allColumns"
-                        :tableRef="aug_data_table"
+                        :tableRef="data_table_ref"
                     />
                 </template>
             </Toolbar>
 
             <!-- ── DataTable ───────────────────────────────────────────────── -->
             <DataTable
-                ref="aug_data_table"
+                ref="data_table_ref"
                 :allColumns="allColumns"
                 :moduleNm="moduleNm"
                 :route_name="routeName + '.index'"
                 @row-action="onRowAction"
             >
                 <!-- Custom cell: Gender → coloured Tag -->
-                <template #body-gender="{ data }">
+                <!-- <template #body-gender="{ data }">
                     <Tag
                         :value="data.gender || 'NA'"
                         :severity="
@@ -194,17 +201,37 @@ const onRowAction = ({ event, data }) => {
                         "
                         rounded
                     />
-                </template>
+                </template> -->
+
+                <!-- Custom cell: Full Name (Account style) -->
+                <!-- <template #body-full_name="{ data }">
+                    <div class="flex items-center gap-3">
+                        <div class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
+                            {{ data.full_name ? data.full_name.charAt(0).toUpperCase() : '—' }}
+                        </div>
+                        <span class="font-medium text-slate-700 dark:text-slate-200">
+                            {{ data.full_name || '—' }}
+                        </span>
+                    </div>
+                </template> -->
+
+                <!-- Custom cell: Date of Birth -->
+                <!-- <template #body-date_of_birth="{ data }">
+                    <span v-if="data.dob_formatted">
+                        {{ data.dob_formatted }}
+                    </span>
+                    <span v-else class="text-slate-300">—</span>
+                </template> -->
 
                 <!-- Custom cell: Blood Group → danger Tag -->
-                <template #body-blood_group="{ data }">
+                <template #body-medical_history-blood_group="{ data }">
                     <Tag
-                        v-if="data.blood_group"
-                        :value="data.blood_group"
+                        v-if="data.medical_history?.blood_group"
+                        :value="data.medical_history.blood_group"
                         severity="danger"
                         rounded
                     />
-                    <span v-else class="text-slate-300">—</span>
+                    <span v-else class="text-slate-300">-</span>
                 </template>
             </DataTable>
         </div>
@@ -217,7 +244,7 @@ const onRowAction = ({ event, data }) => {
             :routeName="routeName"
             moduleName="Patient"
             :enabledActions="['show', 'edit', 'delete']"
-            @fetch-data="() => aug_data_table?.fetchData()"
+            @fetch-data="() => data_table_ref?.fetchData()"
         />
 
         <!-- ── Form – Create / Edit dialog ────────────────────────────────── -->
@@ -225,7 +252,7 @@ const onRowAction = ({ event, data }) => {
             ref="form_ref"
             :branches="branches"
             :routeName="routeName"
-            @fetch-data="() => aug_data_table?.fetchData()"
+            @fetch-data="() => data_table_ref?.fetchData()"
         />
 
         <!-- ── Show – Read-only detail dialog ─────────────────────────────── -->

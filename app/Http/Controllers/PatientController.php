@@ -6,6 +6,7 @@ use App\Http\Requests\StorePatientRequest;
 use App\Http\Requests\UpdatePatientRequest;
 use App\Http\Resources\PatientResource;
 use App\Models\Patient;
+use App\Repositories\PatientRepo;
 use App\Services\PatientService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -25,9 +26,15 @@ use Inertia\Response;
  */
 class PatientController extends Controller
 {
-    public function __construct(
-        protected PatientService $patientService,
-    ) {}
+    protected $patientService;
+    protected $patientRepo;
+    protected $basePath;
+
+    public function __construct() {
+        $this->patientService = new PatientService();
+        $this->patientRepo = new PatientRepo();
+        $this->basePath = 'Patients';
+    }
 
     // -------------------------------------------------------------------------
     // Index — paginated patient list
@@ -40,13 +47,12 @@ class PatientController extends Controller
      */
     public function index(Request $request): JsonResponse|Response
     {
+        $input = request()->all();
         if ($request->wantsJson()) {
-            $patients = $this->patientService->listPatients($request->only([
-                'search', 'status', 'per_page', 'page',
-            ]));
+            $patients = $this->patientRepo->index($input);
 
             return response()->json([
-                'data' => PatientResource::collection($patients->items()),
+                'data' => $patients->items(),
                 'meta' => [
                     'current_page' => $patients->currentPage(),
                     'last_page'    => $patients->lastPage(),
@@ -56,7 +62,7 @@ class PatientController extends Controller
             ]);
         }
 
-        return Inertia::render('Patients/Index', [
+        return Inertia::render($this->basePath.'/Index', [
             'title'     => 'Patients',
             'desc'      => 'Manage patient records',
             'routeName' => 'patients',
@@ -74,16 +80,10 @@ class PatientController extends Controller
      * Returns 201 with the created patient on success.
      * Returns 422 with duplicate-patient info if mobile already exists.
      */
-    public function store(StorePatientRequest $request): JsonResponse
+    public function store(\App\Http\Requests\PatientRequest $request)
     {
-        try {
-            $patient = $this->patientService->createPatient($request->validated());
-        } catch (ValidationException $e) {
-            // Re-throw so Laravel's exception handler returns the correct 422.
-            // The errors bag may contain structured data (patient id/code)
-            // for the frontend to offer "select existing patient" UX.
-            throw $e;
-        }
+        $input = $request->all();
+        $patient = $this->patientRepo->create($input);
 
         return response()->json([
             'message' => 'Patient created successfully.',
@@ -100,16 +100,32 @@ class PatientController extends Controller
      */
     public function show(Patient $patient): JsonResponse|Response
     {
-        $patient = $this->patientService->getPatient($patient);
+        $patientModel = $this->patientRepo->find($patient->id);
 
         if (request()->wantsJson()) {
             return response()->json([
-                'data' => new PatientResource($patient),
+                'data' => new PatientResource($patientModel),
             ]);
         }
 
         return Inertia::render('Patients/Show', [
-            'patient' => new PatientResource($patient),
+            'patient' => new PatientResource($patientModel),
+        ]);
+    }
+
+    // -------------------------------------------------------------------------
+    // Edit — return patient form view
+    // -------------------------------------------------------------------------
+
+    /**
+     * GET /patients/{patient}/edit
+     */
+    public function edit(Patient $patient): Response
+    {
+        $patientModel = $this->patientRepo->find($patient->id);
+
+        return Inertia::render('Patients/Form', [
+            'patient' => new PatientResource($patientModel),
         ]);
     }
 
@@ -120,17 +136,15 @@ class PatientController extends Controller
     /**
      * PUT /patients/{patient}
      */
-    public function update(UpdatePatientRequest $request, Patient $patient): JsonResponse
+    public function update(\App\Http\Requests\PatientRequest $request, Patient $patient): JsonResponse
     {
-        try {
-            $patient = $this->patientService->updatePatient($patient, $request->validated());
-        } catch (ValidationException $e) {
-            throw $e;
-        }
+        $this->patientRepo->update($request->validated(), $patient->id);
+
+        $updatedPatient = $this->patientRepo->find($patient->id);
 
         return response()->json([
             'message' => 'Patient updated successfully.',
-            'data'    => new PatientResource($patient),
+            'data'    => new PatientResource($updatedPatient),
         ]);
     }
 

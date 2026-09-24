@@ -60,7 +60,7 @@ const allColumns = ref([
     },
     {
         key: 2,
-        field: 'patient_name',
+        field: 'patient.full_name',
         header: 'Patient',
         filterType: 'text',
         filterNm: 'patient',
@@ -68,24 +68,24 @@ const allColumns = ref([
     },
     {
         key: 3,
-        field: 'treatment_name',
-        header: 'Treatment',
+        field: 'visit_type',
+        header: 'Visit Type',
         filterType: 'text',
-        filterNm: 'treatment_name',
+        filterNm: 'visit_type',
         sortable: true,
         visible: true,
     },
     {
         key: 4,
-        field: 'appointment_type_name',
+        field: 'appointment_type.name',
         header: 'Type',
         filterType: 'text',
-        filterNm: 'appointment_type_name',
+        filterNm: 'appointment_type_id',
         visible: true,
     },
     {
         key: 5,
-        field: 'doctor_name',
+        field: 'doctor.full_name',
         header: 'Doctor',
         filterType: 'text',
         filterNm: 'doctor',
@@ -93,17 +93,6 @@ const allColumns = ref([
     },
     {
         key: 6,
-        field: 'branch_name',
-        header: 'Branch',
-        filterType: 'select',
-        filterNm: 'branch_id',
-        filterOptions: props.branches,
-        optionLabel: 'name',
-        optionValue: 'id',
-        visible: false,
-    },
-    {
-        key: 7,
         field: 'status',
         header: 'Status',
         filterType: 'select',
@@ -113,15 +102,15 @@ const allColumns = ref([
         visible: true,
     },
     {
-        key: 8,
-        field: 'paid_amount',
+        key: 7,
+        field: 'billing.paid_amount',
         header: 'Paid',
         sortable: true,
         visible: true,
     },
     {
-        key: 9,
-        field: 'payment_status',
+        key: 8,
+        field: 'billing.payment_status',
         header: 'Payment',
         visible: true,
     },
@@ -213,18 +202,14 @@ const updateStatus = (id) => {
                     @row-action="onRowAction"
                     @data-update="syncStatusDrafts"
                 >
-                    <template #body-doctor_name="{ data }">
-                        {{ data.doctor_name || 'Auto assigned later' }}
+                    <template #body-doctor-full_name="{ data }">
+                        {{ data.doctor?.full_name || 'Auto assigned later' }}
                     </template>
 
-                    <template #body-branch_name="{ data }">
-                        {{ data.branch_name || '-' }}
-                    </template>
-
-                    <template #body-appointment_type_name="{ data }">
+                    <template #body-appointment_type-name="{ data }">
                         <Tag
-                            v-if="data.appointment_type_name"
-                            :value="data.appointment_type_name"
+                            v-if="data.appointment_type?.name"
+                            :value="data.appointment_type.name"
                             severity="info"
                             rounded
                         />
@@ -242,14 +227,14 @@ const updateStatus = (id) => {
                         </div>
                     </template>
 
-                    <template #body-paid_amount="{ data }">
-                        <Tag :value="`Rs. ${Number(data.paid_amount).toLocaleString()}`" severity="success" rounded />
+                    <template #body-billing-paid_amount="{ data }">
+                        <Tag :value="`Rs. ${Number(data.billing?.paid_amount || 0).toLocaleString()}`" severity="success" rounded />
                     </template>
 
-                    <template #body-payment_status="{ data }">
+                    <template #body-billing-payment_status="{ data }">
                         <Tag
-                            :value="data.payment_status"
-                            :severity="paymentStatusSeverity[data.payment_status] ?? 'secondary'"
+                            :value="data.billing?.payment_status || 'unpaid'"
+                            :severity="paymentStatusSeverity[data.billing?.payment_status || 'unpaid'] ?? 'secondary'"
                             rounded
                         />
                     </template>

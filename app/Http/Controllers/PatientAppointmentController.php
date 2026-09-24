@@ -7,6 +7,7 @@ use App\Models\Appointment;
 use App\Models\Patient;
 use App\Repositories\AppointmentRepo;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
 
 /**
  * Legacy patient appointment controller — kept for route compatibility.
@@ -35,7 +36,9 @@ class PatientAppointmentController extends Controller
             return response()->json($this->appointmentRepo->index($input));
         }
 
-        return redirect()->route('appointments.index');
+        return Inertia::render('appointments/Index', [
+            'appointments' => $this->appointmentRepo->index($input),
+        ]);
     }
 
     public function store(AppointmentRequest $request)

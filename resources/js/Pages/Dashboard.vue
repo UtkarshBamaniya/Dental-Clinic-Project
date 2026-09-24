@@ -57,8 +57,8 @@ const statusChartData = computed(() => ({
 
 <template>
     <AuthenticatedLayout title="Executive Dashboard">
-        <div class="space-y-6">
-            <section class="grid gap-4 xl:grid-cols-4">
+        <div class="space-y-6 ">
+            <section class="grid gap-4 xl:grid-cols-4 mt-5">
                 <Card
                     v-for="item in metrics.overview"
                     :key="item.label"

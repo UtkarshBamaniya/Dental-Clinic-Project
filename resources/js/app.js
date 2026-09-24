@@ -7,6 +7,7 @@ import { createApp, h } from 'vue';
 import PrimeVue from 'primevue/config';
 import Aura from '@primeuix/themes/aura';
 import ToastService from 'primevue/toastservice';
+import Tooltip from 'primevue/tooltip';
 import { ZiggyVue } from '../../vendor/tightenco/ziggy';
 import 'primeicons/primeicons.css';
 
@@ -30,6 +31,7 @@ createInertiaApp({
             })
             .use(ToastService)
             .use(ZiggyVue)
+            .directive('tooltip', Tooltip)
             .mount(el);
     },
     progress: {

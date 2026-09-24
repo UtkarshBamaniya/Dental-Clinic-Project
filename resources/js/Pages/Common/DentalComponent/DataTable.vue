@@ -123,9 +123,10 @@ const fetchData = async () => {
         });
 
         products.value     = resp.data;
-        totalRecords.value = resp.total;
-        page.value         = resp.current_page;
-        size.value         = resp.per_page;
+        const meta = resp.meta || resp;
+        totalRecords.value = meta.total || 0;
+        page.value         = meta.current_page || 1;
+        size.value         = meta.per_page || props.defaultPageSize;
         emit('data-update', products.value);
     } catch {
         toast.add({
@@ -199,12 +200,18 @@ defineExpose({ fetchData, columns });
         lazy
         paginator
         filterDisplay="row"
-        stripedRows
         removableSort
         scrollable
         contextMenu
         dataKey="id"
-        class="p-datatable-sm border border-slate-200/60 rounded-xl overflow-hidden shadow-sm"
+        class="border border-slate-100 rounded-2xl overflow-hidden bg-white shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)]"
+        :pt="{
+            headerRow: { class: 'bg-slate-50/60' },
+            headerCell: { class: 'text-slate-600 font-semibold py-4 border-b border-slate-100' },
+            row: { class: 'hover:bg-slate-50/80 transition-colors duration-200' },
+            bodyCell: { class: 'py-3.5 border-b border-slate-50 text-slate-600 text-sm' },
+            paginator: { class: 'bg-white border-t border-slate-100 p-4' }
+        }"
         @page="onPage"
         @sort="onSort"
         @row-contextmenu="onRowContextMenu"
@@ -253,16 +260,16 @@ defineExpose({ fetchData, columns });
                 <template v-if="col.filterType === 'text'" #filter>
                     <InputText
                         v-model="filters[col.filterNm]"
-                        :placeholder="`Search ${col.header}`"
-                        class="text-xs w-full"
+                        :placeholder="`Search`"
+                        class="text-sm font-normal w-full shadow-none border-slate-200/80"
                         @input="onFilterChange"
                     />
                 </template>
                 <template v-else-if="col.filterType === 'number'" #filter>
                     <InputText
                         v-model="filters[col.filterNm]"
-                        :placeholder="`Search ${col.header}`"
-                        class="text-xs w-full"
+                        :placeholder="`Search`"
+                        class="text-sm font-normal w-full shadow-none border-slate-200/80"
                         type="number"
                         @input="onFilterChange"
                     />
@@ -273,8 +280,8 @@ defineExpose({ fetchData, columns });
                         :options="col.filterOptions ?? []"
                         :optionLabel="col.optionLabel"
                         :optionValue="col.optionValue"
-                        :placeholder="`Filter ${col.header}`"
-                        class="text-xs w-full"
+                        :placeholder="`All`"
+                        class="text-sm font-normal w-full shadow-none border-slate-200/80"
                         showClear
                         @change="onFilterChange"
                     />
@@ -282,11 +289,11 @@ defineExpose({ fetchData, columns });
                 <template v-else-if="col.filterType === 'date'" #filter>
                     <DatePicker
                         v-model="filters[col.filterNm]"
-                        placeholder="YYYY-MM-DD"
+                        placeholder="Select Date"
                         dateFormat="yy-mm-dd"
                         showIcon
                         iconDisplay="input"
-                        class="text-xs w-full"
+                        class="text-sm font-normal w-full shadow-none border-slate-200/80"
                         @date-select="onDateFilterChange(col.filterNm)"
                         @clear-click="onFilterChange"
                     />
@@ -295,7 +302,7 @@ defineExpose({ fetchData, columns });
                 <!-- Cell body – parent can override via named slot -->
                 <template #body="{ data }">
                     <slot :name="`body-${col.field.replace('.', '-')}`" :data="data" :col="col">
-                        {{ resolveField(data, col.field) ?? '—' }}
+                        {{ resolveField(data, col.field) ?? '' }}
                     </slot>
                 </template>
             </Column>

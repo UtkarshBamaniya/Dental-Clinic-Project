@@ -35,13 +35,18 @@ const openShow = async (id) => {
         const { data } = await axios.get(route(`${props.routeName}.show`, id), {
             headers: { Accept: 'application/json' },
         });
-        patient.value = data;
+        patient.value = data.data;
     } catch {
         toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to load patient details.', life: 3000 });
         visible.value = false;
     } finally {
         loading.value = false;
     }
+};
+
+const formatDate = (dateString) => {
+    if (!dateString) return '—';
+    return new Date(dateString).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 };
 
 const val = (v) => v || '—';
@@ -75,16 +80,27 @@ defineExpose({ openShow });
                     <div class="font-mono text-lg font-bold text-slate-800">
                         {{ patient.patient_code }}
                     </div>
+                    <div class="text-[10px] uppercase tracking-widest text-slate-400 mt-2 mb-1 font-semibold">
+                        Registered On
+                    </div>
+                    <div class="font-mono text-sm text-slate-600">
+                        {{ formatDate(patient.created_at) }}
+                    </div>
                 </div>
                 <div class="flex gap-2 flex-wrap justify-end">
+                    <Tag
+                        :value="patient.status || 'NA'"
+                        :severity="patient.status === 'active' ? 'success' : 'secondary'"
+                        rounded
+                    />
                     <Tag
                         :value="patient.gender || 'NA'"
                         :severity="patient.gender === 'Male' ? 'info' : patient.gender === 'Female' ? 'warn' : 'secondary'"
                         rounded
                     />
                     <Tag
-                        v-if="patient.blood_group"
-                        :value="patient.blood_group"
+                        v-if="patient.medical_history?.blood_group"
+                        :value="patient.medical_history.blood_group"
                         severity="danger"
                         rounded
                     />
@@ -94,14 +110,26 @@ defineExpose({ openShow });
             <Divider />
 
             <!-- Core details grid -->
-            <div class="grid grid-cols-2 gap-x-8 gap-y-4">
+            <div class="grid grid-cols-2 gap-x-8 gap-y-4 md:grid-cols-3">
                 <div>
-                    <div class="detail-label">Full Name</div>
-                    <div class="detail-value">{{ val(patient.name) }}</div>
+                    <div class="detail-label">First Name</div>
+                    <div class="detail-value">{{ val(patient.first_name) }}</div>
                 </div>
                 <div>
-                    <div class="detail-label">Phone</div>
-                    <div class="detail-value">{{ val(patient.phone) }}</div>
+                    <div class="detail-label">Middle Name</div>
+                    <div class="detail-value">{{ val(patient.middle_name) }}</div>
+                </div>
+                <div>
+                    <div class="detail-label">Last Name</div>
+                    <div class="detail-value">{{ val(patient.last_name) }}</div>
+                </div>
+                <div>
+                    <div class="detail-label">Mobile</div>
+                    <div class="detail-value">{{ val(patient.mobile) }}</div>
+                </div>
+                <div>
+                    <div class="detail-label">Alternate Mobile</div>
+                    <div class="detail-value">{{ val(patient.alternate_mobile) }}</div>
                 </div>
                 <div>
                     <div class="detail-label">Email</div>
@@ -112,12 +140,24 @@ defineExpose({ openShow });
                     <div class="detail-value">{{ val(patient.date_of_birth) }}</div>
                 </div>
                 <div>
-                    <div class="detail-label">Branch</div>
-                    <div class="detail-value">{{ val(patient.branch?.name) }}</div>
+                    <div class="detail-label">Occupation</div>
+                    <div class="detail-value">{{ val(patient.occupation) }}</div>
                 </div>
                 <div>
-                    <div class="detail-label">Last Visit</div>
-                    <div class="detail-value">{{ val(patient.last_visit_at) }}</div>
+                    <div class="detail-label">Referred By</div>
+                    <div class="detail-value">{{ val(patient.referred_by) }}</div>
+                </div>
+                <div>
+                    <div class="detail-label">City</div>
+                    <div class="detail-value">{{ val(patient.city) }}</div>
+                </div>
+                <div>
+                    <div class="detail-label">State</div>
+                    <div class="detail-value">{{ val(patient.state) }}</div>
+                </div>
+                <div>
+                    <div class="detail-label">Pincode</div>
+                    <div class="detail-value">{{ val(patient.pincode) }}</div>
                 </div>
             </div>
 
@@ -129,21 +169,31 @@ defineExpose({ openShow });
                 </div>
             </div>
 
-            <!-- Allergies (highlighted in red) -->
-            <div v-if="patient.allergies">
-                <div class="detail-label" style="color: #ef4444">⚠ Allergies / Cautions</div>
-                <div class="mt-1 rounded-xl bg-red-50 border border-red-100 p-3 text-sm text-red-700 leading-relaxed">
-                    {{ patient.allergies }}
+            <template v-if="patient.medical_history">
+                <!-- Current Medicine -->
+                <div v-if="patient.medical_history.current_medicine">
+                    <div class="detail-label">Current Medicine</div>
+                    <div class="mt-1 rounded-xl bg-slate-50 border border-slate-100 p-3 text-sm text-slate-700 leading-relaxed">
+                        {{ patient.medical_history.current_medicine }}
+                    </div>
                 </div>
-            </div>
+                
+                <!-- Previous Dental Treatment -->
+                <div v-if="patient.medical_history.previous_dental_treatment">
+                    <div class="detail-label">Previous Dental Treatment</div>
+                    <div class="mt-1 rounded-xl bg-slate-50 border border-slate-100 p-3 text-sm text-slate-700 leading-relaxed">
+                        {{ patient.medical_history.previous_dental_treatment }}
+                    </div>
+                </div>
 
-            <!-- Clinical notes -->
-            <div v-if="patient.notes">
-                <div class="detail-label">Clinical Notes</div>
-                <div class="mt-1 rounded-xl bg-slate-50 p-3 text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
-                    {{ patient.notes }}
+                <!-- Notes / Cautions (highlighted in red if they exist) -->
+                <div v-if="patient.medical_history.other_notes">
+                    <div class="detail-label" style="color: #ef4444">⚠ Other Notes / Cautions</div>
+                    <div class="mt-1 rounded-xl bg-red-50 border border-red-100 p-3 text-sm text-red-700 leading-relaxed">
+                        {{ patient.medical_history.other_notes }}
+                    </div>
                 </div>
-            </div>
+            </template>
 
         </div>
 
